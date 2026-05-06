@@ -1,0 +1,164 @@
+# Model catalog. Edit this file to add/remove models — the UI dropdowns
+# read directly from here, so no code change is needed.
+#
+# Each model entry:
+#   id              short stable identifier used everywhere internally
+#   display_name    label shown in the UI dropdown
+#   backend         "ollama" | "sentence_transformers" | "hf_transformers"
+#   ollama_tag      (ollama only) the tag passed to Ollama
+#   hf_id           (HF only) the HuggingFace model repo id
+#   ram_estimate_mb rough RAM footprint when loaded (used by ModelManager)
+#   query_prefix    (embedders only) text prepended to QUERIES
+#   passage_prefix  (embedders only) text prepended to PASSAGES
+#   notes           free-form
+
+llms:
+  # --- Current generation ---
+  - id: qwen3.5-9b
+    display_name: "Qwen 3.5 9B (primary)"
+    backend: ollama
+    ollama_tag: "qwen3.5:9b"
+    ram_estimate_mb: 7000
+    notes: "Newest Qwen at the 9B class. Strongest general-purpose option for this hardware floor."
+
+  - id: qwen3-8b
+    display_name: "Qwen 3 8B"
+    backend: ollama
+    ollama_tag: "qwen3:8b"
+    ram_estimate_mb: 5500
+    notes: "Solid alternative; slightly older than 3.5 but well-tested. Good for diversity comparison."
+
+  - id: deepseek-r1-8b
+    display_name: "DeepSeek-R1 8B (reasoning)"
+    backend: ollama
+    ollama_tag: "deepseek-r1:8b"
+    ram_estimate_mb: 5500
+    notes: "Reasoning-trained distillation. Useful for complex multi-hop questions; may be slower."
+
+  - id: phi4-14b
+    display_name: "Phi-4 14B (escalation, slow)"
+    backend: ollama
+    ollama_tag: "phi4:latest"
+    ram_estimate_mb: 9000
+    notes: "Plan v1 escalation if 8B is too weak. Slow on 16GB."
+
+  # --- Plan v1 baselines (kept for reproducibility) ---
+  - id: qwen2.5-7b-instruct
+    display_name: "Qwen 2.5 7B Instruct (plan v1 baseline)"
+    backend: ollama
+    ollama_tag: "qwen2.5:7b-instruct"
+    ram_estimate_mb: 5500
+    notes: "Plan v1's originally-specified primary. Kept as comparison baseline."
+
+  - id: llama3.1-8b-instruct
+    display_name: "Llama 3.1 8B Instruct (plan v1 fallback)"
+    backend: ollama
+    ollama_tag: "llama3.1:8b-instruct-q4_K_M"
+    ram_estimate_mb: 6000
+    notes: "Plan v1's originally-specified fallback. Kept as comparison baseline."
+
+  - id: qwen2.5-3b-instruct
+    display_name: "Qwen 2.5 3B Instruct (fast/dev)"
+    backend: ollama
+    ollama_tag: "qwen2.5:3b-instruct"
+    ram_estimate_mb: 2200
+    notes: "Tiny + fast for smoke testing during dev."
+
+embedders:
+  # --- Current generation ---
+  - id: bge-m3
+    display_name: "BGE-M3 (multilingual, multi-vector)"
+    backend: sentence_transformers
+    hf_id: "BAAI/bge-m3"
+    dim: 1024
+    ram_estimate_mb: 2200
+    query_prefix: ""
+    passage_prefix: ""
+    notes: "2024 release. Supports dense + sparse + multi-vector retrieval (we use dense only here). Multilingual."
+
+  - id: mxbai-embed-large
+    display_name: "mxbai-embed-large-v1"
+    backend: sentence_transformers
+    hf_id: "mixedbread-ai/mxbai-embed-large-v1"
+    dim: 1024
+    ram_estimate_mb: 1400
+    query_prefix: "Represent this sentence for searching relevant passages: "
+    passage_prefix: ""
+    notes: "Strong English embedder, MTEB top-tier. Same prefix protocol as BGE."
+
+  - id: snowflake-arctic-l-v2
+    display_name: "snowflake-arctic-embed-l-v2.0"
+    backend: sentence_transformers
+    hf_id: "Snowflake/snowflake-arctic-embed-l-v2.0"
+    dim: 1024
+    ram_estimate_mb: 1400
+    query_prefix: ""
+    passage_prefix: ""
+    notes: "December 2024 release. Strong on legal/professional text in MTEB."
+
+  # --- Plan v1 baseline ---
+  - id: bge-large
+    display_name: "BGE-large-en-v1.5 (plan v1 baseline)"
+    backend: sentence_transformers
+    hf_id: "BAAI/bge-large-en-v1.5"
+    dim: 1024
+    ram_estimate_mb: 1300
+    query_prefix: "Represent this sentence for searching relevant passages: "
+    passage_prefix: ""
+    notes: "Plan v1's originally-specified primary embedder. Kept as comparison baseline."
+
+  # --- Lighter / different family ---
+  - id: bge-base
+    display_name: "BGE-base-en-v1.5 (lighter)"
+    backend: sentence_transformers
+    hf_id: "BAAI/bge-base-en-v1.5"
+    dim: 768
+    ram_estimate_mb: 440
+    query_prefix: "Represent this sentence for searching relevant passages: "
+    passage_prefix: ""
+
+  - id: e5-large-v2
+    display_name: "E5-large-v2"
+    backend: sentence_transformers
+    hf_id: "intfloat/e5-large-v2"
+    dim: 1024
+    ram_estimate_mb: 1300
+    query_prefix: "query: "
+    passage_prefix: "passage: "
+    notes: "Different family. Good for retrieval-sensitivity testing."
+
+  - id: minilm-l6
+    display_name: "all-MiniLM-L6-v2 (fast/tiny)"
+    backend: sentence_transformers
+    hf_id: "sentence-transformers/all-MiniLM-L6-v2"
+    dim: 384
+    ram_estimate_mb: 90
+    query_prefix: ""
+    passage_prefix: ""
+
+nli:
+  - id: deberta-v3-large-mnli
+    display_name: "DeBERTa-v3-large MNLI/FEVER/ANLI (primary)"
+    backend: hf_transformers
+    hf_id: "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"
+    ram_estimate_mb: 1800
+    notes: "Still SOTA in size class for NLI. Multi-corpus trained. Plan v1 primary."
+
+  - id: modernbert-large-nli
+    display_name: "ModernBERT-large NLI"
+    backend: hf_transformers
+    hf_id: "tasksource/ModernBERT-large-nli"
+    ram_estimate_mb: 1500
+    notes: "ModernBERT (Dec 2024) fine-tuned for NLI. Newer alternative to DeBERTa."
+
+  - id: deberta-v3-base-nli
+    display_name: "DeBERTa-v3-base NLI (lighter)"
+    backend: hf_transformers
+    hf_id: "cross-encoder/nli-deberta-v3-base"
+    ram_estimate_mb: 750
+
+  - id: roberta-large-mnli
+    display_name: "RoBERTa-large MNLI"
+    backend: hf_transformers
+    hf_id: "roberta-large-mnli"
+    ram_estimate_mb: 1400

@@ -1,0 +1,20 @@
+# Auto-detect text files and normalise line endings to LF on commit.
+# Working copies on Windows still see CRLF; Linux/Mac see LF.
+* text=auto eol=lf
+
+# Explicit text files
+*.py text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+*.j2 text eol=lf
+*.json text eol=lf
+*.gitignore text eol=lf
+
+# Explicit binary files (so git doesn't try to diff them)
+*.pdf binary
+*.faiss binary
+*.pkl binary
+*.safetensors binary

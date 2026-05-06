@@ -1,0 +1,52 @@
+# Benchmark — placeholder for v0.1.
+#
+# IMPORTANT: This file is NOT covered by the project's MIT licence. Once
+# populated in plan v1 Phase 2 (200 questions), it stays private to the
+# project team.
+#
+# v0.1 includes only the 5 smoke-test questions that scripts/smoke_test.py
+# exercises. Plan v1 Phase 2 expands this to 200 questions across 6 categories.
+
+questions:
+  - id: smoke_001
+    category: answerable_easy
+    question: "Within how many hours must an APRA-regulated entity notify APRA of a material information security incident?"
+    expected_answer: "As soon as possible and no later than 72 hours after becoming aware."
+    expected_citations:
+      - { doc: "CPS 234", section: "Notification of incidents", paragraph: "35" }
+    expected_state: confident
+    notes: "Source: CPS 234 §35. Used as the v0.1 golden question."
+
+  - id: smoke_002
+    category: unanswerable_out_of_scope
+    question: "What is the AUSTRAC reporting threshold for cryptocurrency-to-cash transactions under the AML/CTF Rules?"
+    expected_answer: null
+    expected_citations: []
+    expected_state: refused
+    notes: "AML/CTF Rules are not in the 7-doc corpus. Should refuse without LLM call."
+
+  - id: smoke_003
+    category: unanswerable_out_of_scope
+    question: "What is the recipe for pavlova?"
+    expected_answer: null
+    expected_citations: []
+    expected_state: refused
+    notes: "Wholly off-domain. Should refuse trivially on retrieval scores."
+
+  - id: smoke_004
+    category: answerable_easy
+    question: "What does APP 11 require regarding the security of personal information?"
+    expected_answer: "Reasonable steps to protect personal information from misuse, interference, loss, unauthorised access, modification or disclosure."
+    expected_citations:
+      - { doc: "Privacy Act", section: "APP 11", paragraph: "11.1" }
+    expected_state: confident
+    notes: "Source: Privacy Act, Australian Privacy Principle 11."
+
+  - id: smoke_005
+    category: answerable_easy
+    question: "Under CPS 230, what is operational risk?"
+    expected_answer: "Operational risks that may result from inadequate or failed internal processes or systems, the actions or inactions of people, or external drivers and events. Operational risk is inherent in all products, activities, processes and systems."
+    expected_citations:
+      - { doc: "CPS 230", section: "Operational risk management", paragraph: "13" }
+    expected_state: confident
+    notes: "Source: CPS 230 §13 (operative description). §24 lists categories. Note: there is no standalone definitions section for operational risk in CPS 230."

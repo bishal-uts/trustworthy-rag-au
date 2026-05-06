@@ -1,0 +1,60 @@
+# Default runtime configuration. UI selections override these for the
+# current session only; CLI flags override both. Edit this file to change
+# the defaults applied on UI startup and by `python -m src.pipeline`.
+
+# Default model selections (must match an `id` in models.yaml)
+default_llm: qwen3.5-9b
+default_embedder: bge-large
+default_nli: deberta-v3-large-mnli
+
+# Retrieval
+retrieval:
+  top_k: 10
+  bm25_weight: 1.0          # used if you switch from RRF to weighted-sum
+  dense_weight: 1.0
+  rrf_k: 60                 # standard RRF constant
+
+# Chunking
+chunking:
+  max_tokens: 512
+  min_tokens: 50            # paragraphs shorter than this are merged forward
+  overlap_tokens: 50        # used when a paragraph is split at sentence boundaries
+
+# Confidence routing thresholds (heuristic combiner; v0.1)
+# Calibrated logistic regression replaces these in plan v1 Phase 3.
+confidence:
+  threshold_confident: 0.65   # was 0.75 — too tight for the heuristic; tune in Phase 3
+  threshold_hedged: 0.40
+  # Per-signal heuristics combined into the final score
+  weight_top1_dense: 0.4
+  weight_rank_overlap: 0.2
+  weight_nli_entail: 0.4
+  # Sub-thresholds — kept as separate dials for tuning later
+  top1_dense_floor: 0.50
+  nli_entail_floor: 0.50
+
+# Generation
+generation:
+  ollama_format_json: true   # use Ollama's JSON-mode if model supports it
+  max_tokens: 1024
+  temperature: 0.2
+  keep_alive: "5m"           # how long Ollama keeps the model warm
+  enable_thinking: false     # Qwen 3/3.5 thinking mode — off for RAG (faster, cleaner JSON)
+
+# Faithfulness check (post-generation NLI)
+faithfulness:
+  per_claim_entail_floor: 0.30   # was 0.50 — too tight; legal claims often paraphrase
+  reroute_to_hedged_on_failure: true
+
+# Memory management
+memory:
+  ram_budget_mb: 8000        # ModelManager LRU-evicts past this
+  embedder_device: cpu       # cpu | cuda — embedder/NLI default to CPU
+  nli_device: cpu
+
+# Paths (relative to repo root)
+paths:
+  raw_pdfs_dir: data/raw_pdfs
+  chunks_dir: data/chunks
+  indexes_dir: data/indexes
+  hf_cache_dir: .hf_cache

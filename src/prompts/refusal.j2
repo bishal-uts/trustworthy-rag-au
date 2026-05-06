@@ -1,0 +1,12 @@
+I cannot answer this question with sufficient confidence from the available regulations.
+
+Reason: {{ reason }}
+
+{% if nearest_chunks -%}
+Nearest matches in the corpus (these did NOT meet the confidence threshold):
+{% for chunk in nearest_chunks -%}
+- {{ chunk.doc }} · {{ chunk.section }} · ¶{{ chunk.paragraph }}
+{% endfor -%}
+{% else %}
+No closely matching content was found in the corpus.
+{%- endif %}

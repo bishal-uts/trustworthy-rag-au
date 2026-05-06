@@ -1,0 +1,61 @@
+# The 7 regulatory documents in scope (plan v1 §5 Phase 1).
+#
+# IMPORTANT: URLs below are best-effort. Verify them before running
+# `python -m data.download --all` by visiting the official source body's
+# website (apra.gov.au, asic.gov.au, legislation.gov.au). Replace any URL
+# that returns a 404 — the download script reports failures clearly.
+#
+# Each entry's metadata flows through to citations, so do not change `id`,
+# `title`, or `source_body` casually after you've built an index.
+
+documents:
+  - id: cps234
+    title: "CPS 234 Information Security"
+    source_body: APRA
+    url: "https://www.apra.gov.au/sites/default/files/cps_234_july_2019_for_public_release.pdf"
+    notes: "Prudential Standard CPS 234 — sets information security obligations."
+
+  - id: cps230
+    title: "CPS 230 Operational Risk Management"
+    source_body: APRA
+    url: "https://www.apra.gov.au/sites/default/files/2023-07/Prudential%20Standard%20CPS%20230%20Operational%20Risk%20Management%20-%20clean.pdf"
+    notes: "Prudential Standard CPS 230 — operational risk and business continuity."
+
+  - id: cps511
+    title: "CPS 511 Remuneration"
+    source_body: APRA
+    url: "https://www.apra.gov.au/sites/default/files/2021-08/Prudential%20Standard%20CPS%20511%20Remuneration_1.pdf"
+    notes: "Prudential Standard CPS 511 — remuneration governance."
+
+  - id: rg271
+    title: "ASIC RG 271 Internal Dispute Resolution"
+    source_body: ASIC
+    url: "https://download.asic.gov.au/media/5805458/rg271-published-2-september-2021.pdf"
+    notes: "Regulatory Guide 271 — IDR for financial services and credit licensees."
+
+  - id: rg274
+    title: "ASIC RG 274 Product Design and Distribution Obligations"
+    source_body: ASIC
+    url: "https://download.asic.gov.au/media/5899239/rg274-published-11-december-2020.pdf"
+    notes: "Regulatory Guide 274 — DDO."
+
+  - id: privacy_act
+    title: "Privacy Act 1988 (extracts)"
+    source_body: Federal Register of Legislation
+    url: "https://www.legislation.gov.au/Details/C2024C00276/Download"
+    notes: "Privacy Act 1988 — extracts: section 6 definitions; APP 1, 6, 11. URL points to compilation download page; may need manual selection of PDF."
+
+  - id: banking_act
+    title: "Banking Act 1959 (extracts)"
+    source_body: Federal Register of Legislation
+    url: "https://www.legislation.gov.au/Details/C2024C00214/Download"
+    notes: "Banking Act 1959 — extracts: section 9 (authority to carry on banking business), section 11AF (directions). URL points to compilation download page."
+
+# Notes on URL stability:
+#  - APRA URLs follow the pattern apra.gov.au/sites/default/files/YYYY-MM/<title>.pdf
+#    and are stable for a given version.
+#  - ASIC URLs follow download.asic.gov.au/media/<id>/<slug>.pdf.
+#    Stable once published.
+#  - legislation.gov.au often serves the latest compilation; you may need
+#    to follow the "Download" link manually and place the PDF at
+#    data/raw_pdfs/<id>.pdf if the direct URL fails.
