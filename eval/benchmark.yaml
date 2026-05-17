@@ -1,52 +1,311 @@
-# Benchmark — placeholder for v0.1.
+# Benchmark — v0.2 (extended for comparison eval).
 #
-# IMPORTANT: This file is NOT covered by the project's MIT licence. Once
-# populated in plan v1 Phase 2 (200 questions), it stays private to the
-# project team.
+# IMPORTANT: This file is NOT covered by the project's MIT licence. It is
+# the ground truth used to compare trustworthy RAG vs baseline RAGs.
 #
-# v0.1 includes only the 5 smoke-test questions that scripts/smoke_test.py
-# exercises. Plan v1 Phase 2 expands this to 200 questions across 6 categories.
+# v0.1 had 5 questions (the originals kept below, unchanged).
+# v0.2 adds:
+#   - expected_answer_keywords  (list of strings for cheap keyword judge)
+#   - difficulty                (easy | medium | hard)
+#   - additional categories     (answerable_multi_chunk, adversarial, ambiguous)
+#
+# Target: ~100 questions across categories for stat. significance. The 20
+# below are seeded examples — extend by reading the source PDFs and
+# following the same schema. Any entry marked `verified: false` needs an
+# expert to confirm the expected answer / citation against the actual PDF
+# before being trusted in results.
+#
+# Schema per question:
+#   id                          unique short id
+#   category                    see categories below
+#   question                    natural-language question
+#   expected_answer             reference answer text (used by NLI/LLM judges)
+#   expected_answer_keywords    list of substrings used by KeywordJudge
+#   expected_citations          list of {doc, section, paragraph}
+#   expected_state              confident | hedged | refused
+#   difficulty                  easy | medium | hard
+#   verified                    true if confirmed against source PDF
+#   notes                       free text — source pointer, gotchas
+#
+# Categories:
+#   answerable_easy             single chunk supports the answer
+#   answerable_multi_chunk      needs 2-3 chunks in the same doc
+#   answerable_crossdoc         needs chunks across 2+ documents
+#   answerable_inferential      requires reasoning over the chunk text
+#   unanswerable_out_of_scope   answer not in the 7-doc corpus
+#   ambiguous                   under-specified; system should hedge / clarify
+#   adversarial_misleading      premise embedded in the question is false
 
 questions:
+  # ---------- v0.1 originals (verified) ----------
+
   - id: smoke_001
     category: answerable_easy
     question: "Within how many hours must an APRA-regulated entity notify APRA of a material information security incident?"
     expected_answer: "As soon as possible and no later than 72 hours after becoming aware."
+    expected_answer_keywords: ["72 hours", "aware"]
     expected_citations:
-      - { doc: "CPS 234", section: "Notification of incidents", paragraph: "35" }
+      - {doc: "CPS 234", section: "Notification of incidents", paragraph: "35"}
     expected_state: confident
+    difficulty: easy
+    verified: true
     notes: "Source: CPS 234 §35. Used as the v0.1 golden question."
 
   - id: smoke_002
     category: unanswerable_out_of_scope
     question: "What is the AUSTRAC reporting threshold for cryptocurrency-to-cash transactions under the AML/CTF Rules?"
     expected_answer: null
+    expected_answer_keywords: []
     expected_citations: []
     expected_state: refused
+    difficulty: easy
+    verified: true
     notes: "AML/CTF Rules are not in the 7-doc corpus. Should refuse without LLM call."
 
   - id: smoke_003
     category: unanswerable_out_of_scope
     question: "What is the recipe for pavlova?"
     expected_answer: null
+    expected_answer_keywords: []
     expected_citations: []
     expected_state: refused
+    difficulty: easy
+    verified: true
     notes: "Wholly off-domain. Should refuse trivially on retrieval scores."
 
   - id: smoke_004
     category: answerable_easy
     question: "What does APP 11 require regarding the security of personal information?"
     expected_answer: "Reasonable steps to protect personal information from misuse, interference, loss, unauthorised access, modification or disclosure."
+    expected_answer_keywords: ["reasonable steps", "personal information", "unauthorised"]
     expected_citations:
-      - { doc: "Privacy Act", section: "APP 11", paragraph: "11.1" }
+      - {doc: "Privacy Act", section: "APP 11", paragraph: "11.1"}
     expected_state: confident
+    difficulty: easy
+    verified: true
     notes: "Source: Privacy Act, Australian Privacy Principle 11."
 
   - id: smoke_005
     category: answerable_easy
     question: "Under CPS 230, what is operational risk?"
     expected_answer: "Operational risks that may result from inadequate or failed internal processes or systems, the actions or inactions of people, or external drivers and events. Operational risk is inherent in all products, activities, processes and systems."
+    expected_answer_keywords: ["internal processes", "people", "external"]
     expected_citations:
-      - { doc: "CPS 230", section: "Operational risk management", paragraph: "13" }
+      - {doc: "CPS 230", section: "Operational risk management", paragraph: "13"}
     expected_state: confident
-    notes: "Source: CPS 230 §13 (operative description). §24 lists categories. Note: there is no standalone definitions section for operational risk in CPS 230."
+    difficulty: easy
+    verified: true
+    notes: "Source: CPS 230 §13. §24 lists categories. No standalone definition section."
+
+  # ---------- v0.2 additions: answerable_easy ----------
+
+  - id: easy_001
+    category: answerable_easy
+    question: "Which APRA standard sets requirements for information security?"
+    expected_answer: "Prudential Standard CPS 234 Information Security."
+    expected_answer_keywords: ["CPS 234", "information security"]
+    expected_citations:
+      - {doc: "CPS 234", section: "", paragraph: ""}
+    expected_state: confident
+    difficulty: easy
+    verified: true
+    notes: "Trivial doc-identity question. Any chunk from CPS 234 satisfies."
+
+  - id: easy_002
+    category: answerable_easy
+    question: "Under the Privacy Act, what does APP stand for?"
+    expected_answer: "Australian Privacy Principles."
+    expected_answer_keywords: ["Australian Privacy Principles"]
+    expected_citations:
+      - {doc: "Privacy Act", section: "", paragraph: ""}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "TODO: confirm against Privacy Act preamble / Schedule 1."
+
+  # ---------- v0.2 additions: answerable_multi_chunk ----------
+
+  - id: multi_001
+    category: answerable_multi_chunk
+    question: "Under CPS 234, what must an APRA-regulated entity do regarding information security incidents, both before they occur and after they are detected?"
+    expected_answer: "Before: maintain information security capability commensurate with vulnerabilities and threats, with controls to protect information assets. After detection: notify APRA as soon as possible and no later than 72 hours of becoming aware of a material incident."
+    expected_answer_keywords: ["controls", "notify APRA", "72 hours"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Information security capability", paragraph: ""}
+      - {doc: "CPS 234", section: "Notification of incidents", paragraph: "35"}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "TODO: confirm capability paragraph numbers. Tests whether system aggregates 2 sections of same doc."
+
+  - id: multi_002
+    category: answerable_multi_chunk
+    question: "Under CPS 230, what are the main components an APRA-regulated entity must establish for operational risk management?"
+    expected_answer: "Operational risk management framework including identifying / assessing / monitoring / controlling operational risks across all products, activities, processes and systems."
+    expected_answer_keywords: ["identify", "assess", "monitor", "control"]
+    expected_citations:
+      - {doc: "CPS 230", section: "Operational risk management", paragraph: ""}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "TODO: confirm exact paragraphs."
+
+  # ---------- v0.2 additions: answerable_crossdoc ----------
+
+  - id: cross_001
+    category: answerable_crossdoc
+    question: "How do APRA CPS 234 and the Privacy Act APP 11 differ in their requirements for protecting information?"
+    expected_answer: "CPS 234 requires information security capability commensurate with threats and 72-hour incident notification to APRA, focused on prudentially-regulated entities. APP 11 requires reasonable steps to protect personal information from misuse / loss / unauthorised access, applies to all APP entities and personal information specifically."
+    expected_answer_keywords: ["CPS 234", "APP 11", "personal information"]
+    expected_citations:
+      - {doc: "CPS 234", section: "", paragraph: ""}
+      - {doc: "Privacy Act", section: "APP 11", paragraph: "11.1"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Tests whether system can pull from 2 docs and synthesise differences. May trigger hedged state — that's fine."
+
+  # ---------- v0.2 additions: answerable_inferential ----------
+
+  - id: infer_001
+    category: answerable_inferential
+    question: "If an APRA-regulated entity becomes aware of an information security incident on Monday morning, by when at the latest must they notify APRA?"
+    expected_answer: "By Thursday morning at the latest — 72 hours from becoming aware."
+    expected_answer_keywords: ["72 hours", "Thursday"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Notification of incidents", paragraph: "35"}
+    expected_state: confident
+    difficulty: medium
+    verified: true
+    notes: "Tests calendar reasoning over the 72h rule."
+
+  # ---------- v0.2 additions: ambiguous ----------
+
+  - id: ambig_001
+    category: ambiguous
+    question: "What is the threshold?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: hedged
+    difficulty: medium
+    verified: true
+    notes: "Severely under-specified. System should hedge or refuse, ideally asking for clarification."
+
+  - id: ambig_002
+    category: ambiguous
+    question: "When must I notify the regulator?"
+    expected_answer: null
+    expected_answer_keywords: ["72 hours"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Notification of incidents", paragraph: "35"}
+    expected_state: hedged
+    difficulty: medium
+    verified: true
+    notes: "Plausibly maps to CPS 234 §35 (information security) but could equally mean Privacy Act notifiable data breaches (not in corpus) or CPS 230 operational risk. Should hedge."
+
+  # ---------- v0.2 additions: adversarial ----------
+
+  - id: adv_001
+    category: adversarial_misleading
+    question: "According to CPS 234, what is the 48-hour notification deadline for material incidents?"
+    expected_answer: "The notification deadline under CPS 234 is 72 hours, not 48. The premise of the question is incorrect."
+    expected_answer_keywords: ["72 hours", "not 48"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Notification of incidents", paragraph: "35"}
+    expected_state: confident
+    difficulty: hard
+    verified: true
+    notes: "Adversarial: false premise in question. Naive RAG may parrot back '48 hours'. Trustworthy RAG should correct based on actual §35."
+
+  - id: adv_002
+    category: adversarial_misleading
+    question: "Confirm that Privacy Act APP 11 requires encryption of all personal information."
+    expected_answer: "APP 11 does not mandate encryption specifically. It requires reasonable steps to protect personal information from misuse, interference, loss, unauthorised access, modification or disclosure. Encryption is one possible reasonable step but not required."
+    expected_answer_keywords: ["reasonable steps", "not", "encryption"]
+    expected_citations:
+      - {doc: "Privacy Act", section: "APP 11", paragraph: "11.1"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "TODO: confirm APP 11 wording. Adversarial: leading 'confirm that X'. System must push back."
+
+  # ---------- v0.2 additions: more out_of_scope ----------
+
+  - id: oos_001
+    category: unanswerable_out_of_scope
+    question: "What is the maximum penalty under the Corporations Act 2001 for insider trading?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: true
+    notes: "Corporations Act 2001 is not in the 7-doc corpus."
+
+  - id: oos_002
+    category: unanswerable_out_of_scope
+    question: "Under the Anti-Money Laundering and Counter-Terrorism Financing Act 2006, what is a reporting entity?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: true
+    notes: "AML/CTF Act 2006 is not in the corpus."
+
+  - id: oos_003
+    category: unanswerable_out_of_scope
+    question: "What rate of GST applies to financial supplies in Australia?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: true
+    notes: "GST is tax law, not in regulatory corpus."
+
+  - id: oos_004
+    category: unanswerable_out_of_scope
+    question: "How does Australia's monetary policy interest rate compare to New Zealand's?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: true
+    notes: "Macroeconomic comparison, not in regulatory corpus. RBA-domain."
+
+  - id: oos_005
+    category: unanswerable_out_of_scope
+    question: "What is the maximum withdrawal limit on a basic savings account at a major Australian bank?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: true
+    notes: "Bank product policy, not regulation."
+
+# ============================================================================
+# Extending to 100 questions
+# ============================================================================
+#
+# To get statistically useful comparison numbers, target ~100 questions:
+#   answerable_easy            30
+#   answerable_multi_chunk     20
+#   answerable_crossdoc        15
+#   answerable_inferential     10
+#   unanswerable_out_of_scope  15
+#   ambiguous                   5
+#   adversarial_misleading      5
+#
+# Workflow:
+#  1. Open each PDF, pick 5-15 paragraphs that contain a factual claim.
+#  2. For each, write a natural question whose answer is in that paragraph.
+#  3. Extract 2-4 keywords that MUST appear in any correct paraphrase.
+#  4. Record expected_citations exactly as parsed by `src/parsing.py`.
+#  5. Set verified: true.
+#  6. Re-run: python -m eval.comparison_eval --per-category
+#
+# Estimated effort: ~5 min/question × ~80 new questions = ~6-8 hours of focused work.
