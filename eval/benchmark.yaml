@@ -663,3 +663,637 @@ questions:
     difficulty: easy
     verified: false
     notes: "RBA monetary policy — neither in corpus nor static."
+
+  # ============================================================
+  # === v0.3 EXPANSION (drafted, all verified: false) ===
+  # 51 new questions across all 10 categories, bringing total to 100.
+  # User verification required before reporting metrics.
+  # ============================================================
+
+  # ---- answerable_easy +6 ----
+
+  - id: easy_003
+    category: answerable_easy
+    question: "Under CPS 230, can an APRA-regulated entity rely on a service provider for critical operations without ensuring it can still meet its prudential obligations?"
+    expected_answer: "No. An APRA-regulated entity must not rely on a service provider unless it can ensure that in doing so it can continue to meet its prudential obligations in full and effectively manage the associated risks."
+    expected_answer_keywords: ["must not rely", "prudential obligations", "manage"]
+    expected_citations:
+      - {doc: "CPS 230", section: "Service provider management", paragraph: "15"}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "Source: CPS 230 §15 (drafted, needs verification)."
+
+  - id: easy_004
+    category: answerable_easy
+    question: "Under CPS 511, how many members must a Board Remuneration Committee have, and what type of director must they be?"
+    expected_answer: "At least three members, all of whom must be non-executive directors of the entity."
+    expected_answer_keywords: ["three", "non-executive", "Board Remuneration Committee"]
+    expected_citations:
+      - {doc: "CPS 511", section: "Board Remuneration Committee", paragraph: "26"}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "Source: CPS 511 §26 (drafted, needs verification)."
+
+  - id: easy_005
+    category: answerable_easy
+    question: "Under CPS 234, who is ultimately responsible for the information security of an APRA-regulated entity?"
+    expected_answer: "The Board of the APRA-regulated entity."
+    expected_answer_keywords: ["Board", "ultimately responsible"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Board responsibility", paragraph: "13"}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "Source: CPS 234 §13 (drafted; close paraphrase of smoke_005 framing for ah_008)."
+
+  - id: easy_006
+    category: answerable_easy
+    question: "Under the Privacy Act notifiable data breaches scheme, must an entity notify affected individuals of an eligible data breach?"
+    expected_answer: "Yes — the entity must notify the eligible data breach in accordance with Part IIIC of the Privacy Act, which generally requires notifying affected individuals (subject to listed exceptions)."
+    expected_answer_keywords: ["notify", "eligible data breach", "Part IIIC"]
+    expected_citations:
+      - {doc: "Privacy Act", section: "Notification of eligible data breaches", paragraph: "26WL"}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "Source: Privacy Act s 26WL (drafted, needs verification)."
+
+  - id: easy_007
+    category: answerable_easy
+    question: "Under ASIC RG 274, what is the purpose of a Target Market Determination (TMD)?"
+    expected_answer: "A TMD is a document that issuers and distributors must make available to identify the class of consumers for whom a financial product is likely to be appropriate, in order to support consumer-centric product design and distribution."
+    expected_answer_keywords: ["Target Market Determination", "consumer", "appropriate", "financial product"]
+    expected_citations:
+      - {doc: "RG 274", section: "Purpose of TMD", paragraph: "5"}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "Source: RG 274.5 area (drafted, needs verification — confirm paragraph)."
+
+  - id: easy_008
+    category: answerable_easy
+    question: "Under the Banking Act 1959, what is required for a body corporate to carry on banking business in Australia?"
+    expected_answer: "An authority granted under the Banking Act (an ADI authority). A body corporate must not carry on banking business in Australia without being an authorised deposit-taking institution (ADI) or another authorised entity."
+    expected_answer_keywords: ["ADI", "authority", "carry on banking business"]
+    expected_citations:
+      - {doc: "Banking Act", section: "Authority to carry on banking business", paragraph: "9"}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "Source: Banking Act s 9 (drafted, needs verification — section numbering)."
+
+  # ---- answerable_hard +4 ----
+
+  - id: hard_009
+    category: answerable_hard
+    question: "Under CPS 234, what must an APRA-regulated entity do when its information assets are managed by a third party?"
+    expected_answer: "The entity must assess the third party's information security capability commensurate with potential incident consequences (§16) and evaluate the design of the third party's information security controls protecting the entity's assets (§22)."
+    expected_answer_keywords: ["third party", "assess", "evaluate", "controls"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Third party assessment", paragraph: "16"}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "Source: CPS 234 §16 + §22 (drafted, needs verification)."
+
+  - id: hard_010
+    category: answerable_hard
+    question: "Under CPS 230, what are the three things an APRA-regulated entity must do to prevent, adapt to, and recover from disruptions?"
+    expected_answer: "Prevent disruption to critical operations to the extent practicable; adapt processes and systems to continue operating within tolerance levels during a disruption; and return to normal operations promptly once the disruption is over."
+    expected_answer_keywords: ["prevent", "adapt", "return to normal", "tolerance levels"]
+    expected_citations:
+      - {doc: "CPS 230", section: "Operational resilience", paragraph: "14"}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "Source: CPS 230 §14 (drafted, needs verification)."
+
+  - id: hard_011
+    category: answerable_hard
+    question: "Under CPS 511, what are the responsibilities of the Board Remuneration Committee?"
+    expected_answer: "The BRC oversees the design, operation, and monitoring of the entity's remuneration framework, must be appropriately composed for independent judgment, and consults with the Board Risk Committee and Chief Risk Officer when relevant to reflect risk outcomes in remuneration decisions."
+    expected_answer_keywords: ["Board Remuneration Committee", "design", "operation", "monitoring"]
+    expected_citations:
+      - {doc: "CPS 511", section: "Board Remuneration Committee", paragraph: "25"}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "Source: CPS 511 §25 + §30 (drafted, needs verification)."
+
+  - id: hard_012
+    category: answerable_hard
+    question: "Under CPS 234, must an APRA-regulated entity actively maintain its information security capability, and if so, in response to what?"
+    expected_answer: "Yes. The entity must actively maintain its information security capability with respect to changes in vulnerabilities and threats, including those resulting from changes to information assets or its business environment."
+    expected_answer_keywords: ["actively maintain", "vulnerabilities", "threats", "changes"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Information security capability", paragraph: "17"}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "Source: CPS 234 §17 (drafted, needs verification)."
+
+  # ---- answerable_inferential +3 ----
+
+  - id: infer_002
+    category: answerable_inferential
+    question: "An APRA-regulated entity discovers a material operational risk incident at 3pm on Friday. By when at the latest must they notify APRA?"
+    expected_answer: "By 3pm on Monday — 72 hours from becoming aware. CPS 230 §33 requires notification as soon as possible and no later than 72 hours."
+    expected_answer_keywords: ["72 hours", "Monday", "operational risk"]
+    expected_citations:
+      - {doc: "CPS 230", section: "Notification to APRA", paragraph: "33"}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "Tests calendar reasoning over the CPS 230 §33 72-hour rule. Drafted."
+
+  - id: infer_003
+    category: answerable_inferential
+    question: "A financial firm receives a complaint on a Tuesday morning. By when at the latest must it acknowledge the complaint, and by when must it provide an IDR response (for a standard complaint)?"
+    expected_answer: "Acknowledge by Wednesday (24 hours / one business day per RG 271.51) and provide the IDR response no later than 30 calendar days from receipt (RG 271.56)."
+    expected_answer_keywords: ["24 hours", "one business day", "30 calendar days"]
+    expected_citations:
+      - {doc: "RG 271", section: "Acknowledging complaints", paragraph: "51"}
+      - {doc: "RG 271", section: "Maximum IDR timeframes", paragraph: "56"}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "Tests inferring two timeframes from RG 271.51 + 56. Drafted."
+
+  - id: infer_004
+    category: answerable_inferential
+    question: "If a senior manager's variable remuneration vested on 1 January 2024, under CPS 511 §36(a), what is the earliest date that clawback can no longer be applied to that remuneration?"
+    expected_answer: "1 January 2026 — clawback may apply for at least two years from the date of payment or vesting, so the period ends 1 January 2026."
+    expected_answer_keywords: ["two years", "2026", "clawback", "vesting"]
+    expected_citations:
+      - {doc: "CPS 511", section: "Clawback", paragraph: "36"}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "Tests calendar reasoning over CPS 511 §36(a) clawback period. Drafted."
+
+  # ---- answerable_multi_chunk +6 (priority — weak category) ----
+
+  - id: multi_003
+    category: answerable_multi_chunk
+    question: "Under CPS 234, what is required of an entity's systematic information security testing program?"
+    expected_answer: "It must test the effectiveness of information security controls (§27), be conducted by appropriately skilled and functionally independent specialists (§30), and be reviewed at least annually or when there is a material change (§31)."
+    expected_answer_keywords: ["systematic testing", "independent", "annually", "material change"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Testing control effectiveness", paragraph: "27"}
+      - {doc: "CPS 234", section: "Testing control effectiveness", paragraph: "30"}
+      - {doc: "CPS 234", section: "Testing program review", paragraph: "31"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Multi-chunk synthesis across CPS 234 §27 + §30 + §31. Drafted."
+
+  - id: multi_004
+    category: answerable_multi_chunk
+    question: "Under CPS 230, what risk management obligations apply when an APRA-regulated entity uses a service provider for critical operations?"
+    expected_answer: "The entity must not rely on a service provider unless it can still meet its prudential obligations in full (§15), and must notify APRA within 20 business days of entering into or materially changing a service provider agreement for material services (§59)."
+    expected_answer_keywords: ["service provider", "prudential obligations", "20 business days", "notify APRA"]
+    expected_citations:
+      - {doc: "CPS 230", section: "Service provider reliance", paragraph: "15"}
+      - {doc: "CPS 230", section: "Service provider notification", paragraph: "59"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Multi-chunk: CPS 230 §15 + §59. Drafted."
+
+  - id: multi_005
+    category: answerable_multi_chunk
+    question: "Under CPS 511, what governance and accountability mechanisms apply to variable remuneration for senior managers?"
+    expected_answer: "The Board Remuneration Committee oversees the framework (§25), variable remuneration must be subject to malus (§35), and senior managers, executive directors and highly-paid material risk-takers must also be subject to clawback for at least two years from payment/vesting (§36)."
+    expected_answer_keywords: ["Board Remuneration Committee", "malus", "clawback", "two years"]
+    expected_citations:
+      - {doc: "CPS 511", section: "Board Remuneration Committee", paragraph: "25"}
+      - {doc: "CPS 511", section: "Malus", paragraph: "35"}
+      - {doc: "CPS 511", section: "Clawback", paragraph: "36"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Multi-chunk: CPS 511 §25 + §35 + §36. Drafted."
+
+  - id: multi_006
+    category: answerable_multi_chunk
+    question: "Under CPS 234, what obligations apply when information assets are managed by a third party?"
+    expected_answer: "The entity must (a) assess the third party's information security capability commensurate with the potential consequences (§16), (b) evaluate the design of the third party's information security controls (§22), and (c) where it relies on the third party's testing, assess whether the nature and frequency of that testing is appropriate (§28)."
+    expected_answer_keywords: ["third party", "assess", "evaluate", "testing"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Third party assessment", paragraph: "16"}
+      - {doc: "CPS 234", section: "Third party controls", paragraph: "22"}
+      - {doc: "CPS 234", section: "Third party testing", paragraph: "28"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Multi-chunk: CPS 234 §16 + §22 + §28. Drafted."
+
+  - id: multi_007
+    category: answerable_multi_chunk
+    question: "Under CPS 234, what notification obligations does an entity have toward APRA in respect of information security?"
+    expected_answer: "Two notifications: (1) APRA must be notified of material information security incidents within 72 hours (§35); and (2) APRA must be notified of material information security control weaknesses the entity cannot remediate in a timely manner, within 10 business days (§36)."
+    expected_answer_keywords: ["72 hours", "10 business days", "notify APRA", "weakness"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Notification of incidents", paragraph: "35"}
+      - {doc: "CPS 234", section: "Notification of weaknesses", paragraph: "36"}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "Multi-chunk: CPS 234 §35 + §36. Drafted."
+
+  - id: multi_008
+    category: answerable_multi_chunk
+    question: "Under CPS 230, what are an APRA-regulated entity's core operational risk management obligations?"
+    expected_answer: "An entity must effectively manage its operational risks, set and maintain standards for conduct and compliance, maintain critical operations within tolerance levels through severe disruptions, and manage risks associated with use of service providers (§12). Operational risk management must be integrated into the entity's overall risk management framework (§18)."
+    expected_answer_keywords: ["operational risks", "tolerance levels", "service providers", "risk management framework"]
+    expected_citations:
+      - {doc: "CPS 230", section: "Core obligations", paragraph: "12"}
+      - {doc: "CPS 230", section: "Integration", paragraph: "18"}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "Multi-chunk: CPS 230 §12 + §18. Drafted."
+
+  # ---- answerable_crossdoc +5 (priority — weak category) ----
+
+  - id: cross_002
+    category: answerable_crossdoc
+    question: "Both CPS 234 and CPS 230 impose 72-hour notification requirements. What's the difference in what triggers each?"
+    expected_answer: "CPS 234 §35 requires notification within 72 hours of a material information security incident; CPS 230 §33 requires notification within 72 hours of an operational risk incident likely to have material financial impact or impact on the entity's ability to maintain critical operations. The first is information-security-specific; the second is operational-risk-broad."
+    expected_answer_keywords: ["72 hours", "information security incident", "operational risk incident", "notify APRA"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Notification of incidents", paragraph: "35"}
+      - {doc: "CPS 230", section: "Notification to APRA", paragraph: "33"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Cross-doc: compares CPS 234 §35 with CPS 230 §33. Drafted."
+
+  - id: cross_003
+    category: answerable_crossdoc
+    question: "When an APRA-regulated entity suffers an information security incident that affects personal information of its customers, what notification obligations apply across the regulatory regimes in this corpus?"
+    expected_answer: "Two parallel obligations: (1) notify APRA of the material information security incident within 72 hours (CPS 234 §35); (2) notify the OAIC and affected individuals of the eligible data breach under the Privacy Act notifiable data breaches scheme (Part IIIC, including s 26WL), subject to listed exceptions."
+    expected_answer_keywords: ["72 hours", "APRA", "OAIC", "notifiable data breach"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Notification of incidents", paragraph: "35"}
+      - {doc: "Privacy Act", section: "NDB scheme", paragraph: "26WL"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Cross-doc: CPS 234 §35 + Privacy Act Part IIIC. Drafted."
+
+  - id: cross_004
+    category: answerable_crossdoc
+    question: "How do Board accountability obligations differ between CPS 234 (information security) and CPS 230 (operational risk)?"
+    expected_answer: "Under CPS 234 §13, the Board is ultimately responsible for the entity's information security. Under CPS 230 §20, the Board is ultimately accountable for the oversight of operational risk management, including business continuity and service provider arrangements. Both place ultimate responsibility on the Board but for different scopes."
+    expected_answer_keywords: ["Board", "ultimately responsible", "ultimately accountable", "operational risk"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Board responsibility", paragraph: "13"}
+      - {doc: "CPS 230", section: "Board accountability", paragraph: "20"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Cross-doc: CPS 234 §13 + CPS 230 §20. Drafted."
+
+  - id: cross_005
+    category: answerable_crossdoc
+    question: "If a customer's complaint about a financial firm involves the firm's handling of their personal information, which complaint frameworks could apply?"
+    expected_answer: "ASIC RG 271's internal dispute resolution scheme applies for the complaint to the financial firm (acknowledge within 24 hours, IDR response within 30 calendar days). Separately, if the matter involves a privacy breach, the Privacy Act's notifiable data breaches scheme (Part IIIC) may apply, with OAIC oversight. The two frameworks are parallel and not mutually exclusive."
+    expected_answer_keywords: ["RG 271", "IDR", "Privacy Act", "OAIC"]
+    expected_citations:
+      - {doc: "RG 271", section: "IDR process", paragraph: "51"}
+      - {doc: "Privacy Act", section: "NDB scheme", paragraph: "26WL"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Cross-doc: RG 271 + Privacy Act. Drafted."
+
+  - id: cross_006
+    category: answerable_crossdoc
+    question: "Compare the role of the Board under CPS 511 with the Board's role under CPS 230. How do they differ?"
+    expected_answer: "Under CPS 511, the Board must establish a Board Remuneration Committee that oversees the design, operation and monitoring of the remuneration framework (§25). Under CPS 230, the Board is ultimately accountable for oversight of operational risk management, including business continuity and service provider arrangements (§20). CPS 511 imposes a structural requirement (a dedicated committee); CPS 230 imposes an oversight accountability."
+    expected_answer_keywords: ["Board", "Remuneration Committee", "operational risk", "oversight"]
+    expected_citations:
+      - {doc: "CPS 511", section: "Board Remuneration Committee", paragraph: "25"}
+      - {doc: "CPS 230", section: "Board accountability", paragraph: "20"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Cross-doc: CPS 511 §25 + CPS 230 §20. Drafted."
+
+  # ---- ambiguous +3 ----
+
+  - id: ambig_003
+    category: ambiguous
+    question: "What protection requirements apply?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: hedged
+    difficulty: medium
+    verified: false
+    notes: "Severely under-specified — could refer to information security (CPS 234), personal information (Privacy Act APP 11), credit reporting (Privacy Act Part IIIA), or operational risk controls (CPS 230). System should hedge and ask for clarification. Drafted."
+
+  - id: ambig_004
+    category: ambiguous
+    question: "Who is ultimately responsible for compliance?"
+    expected_answer: "Ambiguous — the Board is ultimately responsible/accountable across multiple standards: information security (CPS 234 §13), operational risk (CPS 230 §20), and remuneration governance through the Board Remuneration Committee (CPS 511 §25). A complete answer needs to identify which compliance domain."
+    expected_answer_keywords: ["Board", "ultimately", "depends"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Board responsibility", paragraph: "13"}
+      - {doc: "CPS 230", section: "Board accountability", paragraph: "20"}
+    expected_state: hedged
+    difficulty: medium
+    verified: false
+    notes: "Ambiguous compliance domain. Drafted."
+
+  - id: ambig_005
+    category: ambiguous
+    question: "How long do I have before I need to report?"
+    expected_answer: null
+    expected_answer_keywords: ["72 hours", "depends"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Notification of incidents", paragraph: "35"}
+    expected_state: hedged
+    difficulty: medium
+    verified: false
+    notes: "Could map to 72 hours (CPS 234 §35 / CPS 230 §33), 10 business days (CPS 234 §36), 20 business days (CPS 230 §59 service providers), 30 calendar days (RG 271 IDR), or NDB scheme timeframes. System should hedge and disambiguate. Drafted."
+
+  # ---- adversarial_misleading +5 (false premise, expect confident correction) ----
+
+  - id: advm_003
+    category: adversarial_misleading
+    question: "Confirm that under CPS 234, an APRA-regulated entity must notify its customers within 24 hours of a material information security incident."
+    expected_answer: "Incorrect on two counts. CPS 234 §35 requires notification to APRA (not customers) within 72 hours (not 24). Customer notification falls under the Privacy Act's notifiable data breaches scheme, not CPS 234."
+    expected_answer_keywords: ["72 hours", "APRA", "not customers"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Notification of incidents", paragraph: "35"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Adversarial: false premise — wrong audience (customers vs APRA) and wrong timeframe (24h vs 72h). System should confidently correct. Drafted."
+
+  - id: advm_004
+    category: adversarial_misleading
+    question: "Under CPS 230, what is the 24-hour notification deadline for operational risk incidents?"
+    expected_answer: "There is no 24-hour deadline under CPS 230. CPS 230 §33 requires notification of material operational risk incidents to APRA as soon as possible and no later than 72 hours after becoming aware."
+    expected_answer_keywords: ["72 hours", "not 24"]
+    expected_citations:
+      - {doc: "CPS 230", section: "Notification to APRA", paragraph: "33"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Adversarial: false premise — incorrect timeframe. System should push back. Drafted."
+
+  - id: advm_005
+    category: adversarial_misleading
+    question: "Confirm that under APP 11, encryption of personal information at rest is a legal minimum requirement."
+    expected_answer: "APP 11 does not mandate encryption specifically. It requires APP entities to take such steps as are reasonable in the circumstances to protect personal information. Encryption may be one such reasonable step, but is not a legal minimum prescribed by APP 11."
+    expected_answer_keywords: ["reasonable steps", "not", "encryption"]
+    expected_citations:
+      - {doc: "Privacy Act", section: "APP 11", paragraph: "11.1"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Adversarial: false premise. System should correctly distinguish 'reasonable steps' from 'mandatory encryption'. Drafted."
+
+  - id: advm_006
+    category: adversarial_misleading
+    question: "Under RG 271, financial firms must acknowledge complaints within 15 minutes of receipt. What does this requirement say?"
+    expected_answer: "There is no 15-minute requirement. RG 271.51 expects financial firms to acknowledge a complaint within 24 hours (or one business day) of receipt."
+    expected_answer_keywords: ["24 hours", "not 15 minutes", "one business day"]
+    expected_citations:
+      - {doc: "RG 271", section: "Acknowledging complaints", paragraph: "51"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Adversarial: fabricated 15-minute timeline. System should correct to 24 hours. Drafted."
+
+  - id: advm_007
+    category: adversarial_misleading
+    question: "Confirm that under CPS 511, all variable remuneration must be deferred for ten years."
+    expected_answer: "Incorrect. CPS 511 §41 specifies role-specific deferral periods: at least 60% of a CEO's total variable remuneration must be deferred over a minimum of six years; for other senior managers and executive directors, at least 40% over a different period. Ten years is not specified for any role."
+    expected_answer_keywords: ["six years", "60 per cent", "CEO", "not ten"]
+    expected_citations:
+      - {doc: "CPS 511", section: "Deferral", paragraph: "41"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Adversarial: wrong timeframe (10 years), and ignores role-specific structure. System should correct. Drafted."
+
+  # ---- adversarial_fabricated +4 (premise references content not in corpus) ----
+
+  - id: advf_004
+    category: adversarial_fabricated
+    question: "Under CPS 234, what is the mandatory annual number of hours of cybersecurity awareness training that an APRA-regulated entity must provide to its staff?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "Fabricated premise — CPS 234 does not prescribe specific training hours. Drafted."
+
+  - id: advf_005
+    category: adversarial_fabricated
+    question: "Under CPS 230, what is the 'critical operations resilience index' that APRA-regulated entities must calculate and report monthly?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "Fabricated premise — there is no such index in CPS 230. The standard refers to tolerance levels but not a named index. Drafted."
+
+  - id: advf_006
+    category: adversarial_fabricated
+    question: "Under RG 274, what is the maximum number of financial products that can be covered by a single Target Market Determination document?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "Fabricated premise — RG 274 does not impose a cap on products per TMD. Drafted."
+
+  - id: advf_007
+    category: adversarial_fabricated
+    question: "Under the Privacy Act, what is the statutory limit on the file size of a personal information export request that an APP entity must respond to?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "Fabricated premise — no such file-size limit exists in the Privacy Act. Drafted."
+
+  # ---- unanswerable_in_domain +5 ----
+
+  - id: uid_006
+    category: unanswerable_in_domain
+    question: "Under CPS 510, what is the minimum number of independent directors required on the board of an APRA-regulated entity?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "CPS 510 (Governance) is in the APRA prudential framework but not in the 7-doc corpus. Topic-adjacent (governance) but specific answer not retrievable. Drafted."
+
+  - id: uid_007
+    category: unanswerable_in_domain
+    question: "Under CPS 234, what specific multi-factor authentication implementation must an APRA-regulated entity deploy for privileged access?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "CPS 234 is principles-based and does not prescribe specific MFA implementations. Topic-adjacent (information security controls) but specific answer not in corpus. Drafted."
+
+  - id: uid_008
+    category: unanswerable_in_domain
+    question: "Under APP 11.2, what is the minimum retention period for personal information before destruction is required?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "APP 11.2 requires destruction or de-identification of personal information no longer needed; minimum retention periods are set by other legislation (tax records, etc.), not APP 11.2 itself. Drafted."
+
+  - id: uid_009
+    category: unanswerable_in_domain
+    question: "Under RG 271, what specific case-management software systems must financial firms use to process IDR complaints?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "RG 271 sets process and timeframe requirements but does not prescribe specific software. Drafted."
+
+  - id: uid_010
+    category: unanswerable_in_domain
+    question: "Under the Banking Act 1959 as included in this corpus, what is the maximum monetary penalty for an ADI that breaches CPS 234?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: hard
+    verified: false
+    notes: "Penalty schedules for ADI breaches of prudential standards sit in specific Banking Act sections (e.g. s 11AF and the regulations) that may not be included in the extracts in this corpus. Topic-adjacent but specific quantum not retrievable. Drafted."
+
+  # ---- unanswerable_out_of_scope +10 ----
+
+  - id: uos_006
+    category: unanswerable_out_of_scope
+    question: "Under the BASEL III framework, how is the Liquidity Coverage Ratio (LCR) calculated for internationally active banks?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: false
+    notes: "International banking regulation — not in the 7-doc corpus. Drafted."
+
+  - id: uos_007
+    category: unanswerable_out_of_scope
+    question: "Under the Monetary Authority of Singapore's regulatory framework, what capital adequacy ratio must Singapore-licensed banks maintain?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: false
+    notes: "Foreign jurisdiction (Singapore) — not in corpus. Drafted."
+
+  - id: uos_008
+    category: unanswerable_out_of_scope
+    question: "What controls must a SaaS provider implement to pass a SOC 2 Type II audit?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: false
+    notes: "Out-of-scope: US AICPA SOC 2 framework, not Australian prudential regulation. Drafted."
+
+  - id: uos_009
+    category: unanswerable_out_of_scope
+    question: "Under the EU Digital Operational Resilience Act (DORA), how is an ICT third-party service provider classified as 'critical'?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: false
+    notes: "EU regulation — adjacent topic (operational resilience) but different jurisdiction; not in corpus. Drafted."
+
+  - id: uos_010
+    category: unanswerable_out_of_scope
+    question: "Under the AUSTRAC Tranche 2 reforms, which non-financial businesses became reporting entities?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: false
+    notes: "AUSTRAC AML/CTF framework — not in our 7-doc corpus. Drafted."
+
+  - id: uos_011
+    category: unanswerable_out_of_scope
+    question: "Under the Corporations Act 2001, what is the maximum civil penalty for engaging in misleading or deceptive conduct in relation to a financial product?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: false
+    notes: "Corporations Act — referenced by RG 271 and RG 274 but the Act itself is not in the corpus. Drafted."
+
+  - id: uos_012
+    category: unanswerable_out_of_scope
+    question: "What does ISO/IEC 27001:2022 require for the establishment of an information security management system?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: false
+    notes: "ISO standard — adjacent to CPS 234 but a different document and not in the corpus. Drafted."
+
+  - id: uos_013
+    category: unanswerable_out_of_scope
+    question: "How does APRA's prudential capital framework (CPS 110, APS 110, APS 112) determine an ADI's Tier 1 capital ratio?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "Capital framework prudential standards — APRA domain (adjacent to CPS 234 / 230) but not in this corpus. Drafted."
+
+  - id: uos_014
+    category: unanswerable_out_of_scope
+    question: "Under the National Consumer Credit Protection Act, what is the cap on interest rates that small amount credit contract providers can charge?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: false
+    notes: "NCCP Act — consumer credit law, not in corpus. Drafted."
+
+  - id: uos_015
+    category: unanswerable_out_of_scope
+    question: "Under the Privacy (Tax File Number) Rule 2015, what restrictions apply to the use and disclosure of tax file numbers?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: false
+    notes: "Specific TFN rule under the Privacy Act framework but a separate instrument — not included in this corpus. Drafted."
