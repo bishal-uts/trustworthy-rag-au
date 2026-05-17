@@ -1,0 +1,331 @@
+# Benchmark — 20-question ablation subset (v0.3, derived from benchmark.yaml).
+#
+# Stratified sample of the full 100-question benchmark, picked to give every
+# category at least one question and most categories 2+. Used by the ablation
+# runner to keep 5-config × N-question runs tractable (~30-45 min on Qwen 9B).
+#
+# To run full ablation suite on this subset:
+#     python scripts/run_ablations.py --benchmark eval/benchmark_ablation.yaml
+#
+# For the full 100-question evaluation use eval/benchmark.yaml directly.
+
+questions:
+- id: smoke_001
+  category: answerable_easy
+  question: Within how many hours must an APRA-regulated entity notify APRA of a material information security incident?
+  expected_answer: As soon as possible and no later than 72 hours after becoming aware.
+  expected_answer_keywords:
+  - 72 hours
+  - aware
+  expected_citations:
+  - doc: CPS 234
+    section: Notification of incidents
+    paragraph: '35'
+  expected_state: confident
+  difficulty: easy
+  verified: true
+  notes: 'Source: CPS 234 §35. Used as the v0.1 golden question.'
+- id: smoke_004
+  category: answerable_easy
+  question: What does APP 11 require regarding the security of personal information?
+  expected_answer: Reasonable steps to protect personal information from misuse, interference, loss, unauthorised access,
+    modification or disclosure.
+  expected_answer_keywords:
+  - reasonable steps
+  - personal information
+  - unauthorised
+  expected_citations:
+  - doc: Privacy Act
+    section: APP 11
+    paragraph: '11.1'
+  expected_state: confident
+  difficulty: easy
+  verified: true
+  notes: 'Source: Privacy Act, Australian Privacy Principle 11.'
+- id: smoke_005
+  category: answerable_easy
+  question: Under CPS 230, what is operational risk?
+  expected_answer: Operational risks that may result from inadequate or failed internal processes or systems, the actions
+    or inactions of people, or external drivers and events. Operational risk is inherent in all products, activities, processes
+    and systems.
+  expected_answer_keywords:
+  - internal processes
+  - people
+  - external
+  expected_citations:
+  - doc: CPS 230
+    section: Operational risk management
+    paragraph: '13'
+  expected_state: confident
+  difficulty: easy
+  verified: true
+  notes: 'Source: CPS 230 §13.'
+- id: ah_001
+  category: answerable_hard
+  question: Under CPS 234, what three factors must the nature and frequency of an APRA-regulated entity's systematic testing
+    program be commensurate with?
+  expected_answer: (a) the rate at which vulnerabilities and threats change; (b) the criticality and sensitivity of the information
+    asset; and (c) the consequences of an information security incident.
+  expected_answer_keywords:
+  - vulnerabilities
+  - criticality
+  - consequences
+  expected_citations:
+  - doc: CPS 234
+    section: Testing control effectiveness
+    paragraph: '27'
+  expected_state: confident
+  difficulty: medium
+  verified: false
+  notes: 'Source: CPS 234 §27(a)-(c).'
+- id: ah_006
+  category: answerable_hard
+  question: Under the Privacy Act, what is an 'eligible data breach' for the purposes of the notifiable data breach scheme?
+  expected_answer: Broadly, an eligible data breach occurs where there is unauthorised access to, unauthorised disclosure
+    of, or loss of, personal information held by an entity, and a reasonable person would conclude the breach is likely to
+    result in serious harm to any of the individuals to whom the information relates.
+  expected_answer_keywords:
+  - unauthorised access
+  - unauthorised disclosure
+  - loss
+  - serious harm
+  expected_citations:
+  - doc: Privacy Act
+    section: Eligible data breach
+    paragraph: 26WE
+  expected_state: confident
+  difficulty: hard
+  verified: false
+  notes: 'Source: Privacy Act Part IIIC, s 26WE. Multi-element definition.'
+- id: multi_001
+  category: answerable_multi_chunk
+  question: Under CPS 234, what must an APRA-regulated entity do regarding information security incidents, both before they
+    occur and after they are detected?
+  expected_answer: 'Before: maintain information security capability commensurate with vulnerabilities and threats, with controls
+    to protect information assets. After: detect and respond via response plans, then notify APRA as soon as possible and
+    no later than 72 hours after becoming aware of a material incident.'
+  expected_answer_keywords:
+  - controls
+  - notify APRA
+  - 72 hours
+  expected_citations:
+  - doc: CPS 234
+    section: Information security capability
+    paragraph: ''
+  - doc: CPS 234
+    section: Notification of incidents
+    paragraph: '35'
+  expected_state: confident
+  difficulty: medium
+  verified: false
+  notes: 'Tests whether system aggregates 2 sections of same doc. From PR #1.'
+- id: multi_003
+  category: answerable_multi_chunk
+  question: Under CPS 234, what is required of an entity's systematic information security testing program?
+  expected_answer: It must test the effectiveness of information security controls (§27), be conducted by appropriately skilled
+    and functionally independent specialists (§30), and be reviewed at least annually or when there is a material change (§31).
+  expected_answer_keywords:
+  - systematic testing
+  - independent
+  - annually
+  - material change
+  expected_citations:
+  - doc: CPS 234
+    section: Testing control effectiveness
+    paragraph: '27'
+  - doc: CPS 234
+    section: Testing control effectiveness
+    paragraph: '30'
+  - doc: CPS 234
+    section: Testing program review
+    paragraph: '31'
+  expected_state: confident
+  difficulty: hard
+  verified: false
+  notes: Multi-chunk synthesis across CPS 234 §27 + §30 + §31. Drafted.
+- id: cross_001
+  category: answerable_crossdoc
+  question: How do APRA CPS 234 and the Privacy Act APP 11 differ in their requirements for protecting information?
+  expected_answer: CPS 234 requires information security capability commensurate with threats and 72-hour incident notification
+    to APRA, focused on prudentially relevant information assets. APP 11 requires reasonable steps to protect personal information
+    from misuse, interference, loss and unauthorised access, focused on privacy of individuals.
+  expected_answer_keywords:
+  - CPS 234
+  - APP 11
+  - personal information
+  expected_citations:
+  - doc: CPS 234
+    section: ''
+    paragraph: ''
+  - doc: Privacy Act
+    section: APP 11
+    paragraph: '11.1'
+  expected_state: confident
+  difficulty: hard
+  verified: false
+  notes: 'Tests cross-document synthesis. May trigger hedged state — that''s fine. From PR #1.'
+- id: cross_002
+  category: answerable_crossdoc
+  question: Both CPS 234 and CPS 230 impose 72-hour notification requirements. What's the difference in what triggers each?
+  expected_answer: CPS 234 §35 requires notification within 72 hours of a material information security incident; CPS 230
+    §33 requires notification within 72 hours of an operational risk incident likely to have material financial impact or
+    impact on the entity's ability to maintain critical operations. The first is information-security-specific; the second
+    is operational-risk-broad.
+  expected_answer_keywords:
+  - 72 hours
+  - information security incident
+  - operational risk incident
+  - notify APRA
+  expected_citations:
+  - doc: CPS 234
+    section: Notification of incidents
+    paragraph: '35'
+  - doc: CPS 230
+    section: Notification to APRA
+    paragraph: '33'
+  expected_state: confident
+  difficulty: hard
+  verified: false
+  notes: 'Cross-doc: compares CPS 234 §35 with CPS 230 §33. Drafted.'
+- id: infer_001
+  category: answerable_inferential
+  question: If an APRA-regulated entity becomes aware of an information security incident on Monday morning, by when at the
+    latest must they notify APRA?
+  expected_answer: By Thursday morning at the latest — 72 hours from becoming aware.
+  expected_answer_keywords:
+  - 72 hours
+  - Thursday
+  expected_citations:
+  - doc: CPS 234
+    section: Notification of incidents
+    paragraph: '35'
+  expected_state: confident
+  difficulty: medium
+  verified: true
+  notes: 'Tests calendar reasoning over the 72h rule. From PR #1.'
+- id: ambig_001
+  category: ambiguous
+  question: What is the threshold?
+  expected_answer: null
+  expected_answer_keywords: []
+  expected_citations: []
+  expected_state: hedged
+  difficulty: medium
+  verified: true
+  notes: 'Severely under-specified. System should hedge or refuse, ideally asking for clarification. From PR #1.'
+- id: amb_001
+  category: ambiguous
+  question: What are an APRA-regulated entity's obligations when an information security incident occurs?
+  expected_answer: Obligations span detection and response mechanisms (CPS 234 §23), maintenance of response plans (§24-25),
+    annual testing of those plans (§26), and notification to APRA within 72 hours of a material incident (§35). A complete
+    answer requires synthesising multiple paragraphs.
+  expected_answer_keywords:
+  - detect
+  - response plans
+  - 72 hours
+  - notify APRA
+  expected_citations:
+  - doc: CPS 234
+    section: Incident management
+    paragraph: '23'
+  - doc: CPS 234
+    section: Notification of incidents
+    paragraph: '35'
+  expected_state: hedged
+  difficulty: medium
+  verified: false
+  notes: Multi-chunk synthesis required. Confident single-citation answer would be incomplete.
+- id: adv_001
+  category: adversarial_misleading
+  question: According to CPS 234, what is the 48-hour notification deadline for material incidents?
+  expected_answer: The notification deadline under CPS 234 is 72 hours, not 48. The premise of the question is incorrect.
+  expected_answer_keywords:
+  - 72 hours
+  - not 48
+  expected_citations:
+  - doc: CPS 234
+    section: Notification of incidents
+    paragraph: '35'
+  expected_state: confident
+  difficulty: hard
+  verified: true
+  notes: 'Adversarial: false premise in question. Naive RAG may parrot back ''48 hours''. Trustworthy RAG should correct based
+    on actual §35. From PR #1.'
+- id: advf_001
+  category: adversarial_fabricated
+  question: Under CPS 234, what is the five-level information sensitivity rating system (Levels 1 through 5) that APRA-regulated
+    entities must apply to their information assets?
+  expected_answer: null
+  expected_answer_keywords: []
+  expected_citations: []
+  expected_state: refused
+  difficulty: medium
+  verified: false
+  notes: CPS 234 §20 requires classification by criticality and sensitivity but does not prescribe a numbered five-level scheme.
+    The question loads a fabricated premise; refusal is the trustworthy response.
+- id: advf_002
+  category: adversarial_fabricated
+  question: Under the Privacy Act, individuals can claim up to $50,000 in statutory damages for each breach of an APP — is
+    this correct, and which section sets this amount?
+  expected_answer: null
+  expected_answer_keywords: []
+  expected_citations: []
+  expected_state: refused
+  difficulty: hard
+  verified: false
+  notes: Privacy Act does not specify a $50,000-per-breach statutory damages figure. Refusal expected; a confident confirmation
+    would be a hallucination.
+- id: uid_001
+  category: unanswerable_in_domain
+  question: Under CPS 234, what specific encryption algorithms must an APRA-regulated entity use to protect personal information
+    at rest?
+  expected_answer: null
+  expected_answer_keywords: []
+  expected_citations: []
+  expected_state: refused
+  difficulty: medium
+  verified: false
+  notes: CPS 234 is principles-based and does not specify cryptographic algorithms. Topic is in scope (information security)
+    but the specific answer is not in the corpus.
+- id: uid_005
+  category: unanswerable_in_domain
+  question: Under the Banking Act 1959, what is the minimum prudential capital requirement for an authorised deposit-taking
+    institution?
+  expected_answer: null
+  expected_answer_keywords: []
+  expected_citations: []
+  expected_state: refused
+  difficulty: hard
+  verified: false
+  notes: Capital requirements for ADIs sit in APRA's CPS 110 / APS 110 / APS 112, not in the Banking Act extracts in this
+    corpus.
+- id: smoke_002
+  category: unanswerable_out_of_scope
+  question: What is the AUSTRAC reporting threshold for cryptocurrency-to-cash transactions under the AML/CTF Rules?
+  expected_answer: null
+  expected_answer_keywords: []
+  expected_citations: []
+  expected_state: refused
+  difficulty: easy
+  verified: true
+  notes: AML/CTF Rules are not in the 7-doc corpus. Should refuse without LLM call.
+- id: smoke_003
+  category: unanswerable_out_of_scope
+  question: What is the recipe for pavlova?
+  expected_answer: null
+  expected_answer_keywords: []
+  expected_citations: []
+  expected_state: refused
+  difficulty: easy
+  verified: true
+  notes: Wholly off-domain. Should refuse trivially on retrieval scores.
+- id: oos_001
+  category: unanswerable_out_of_scope
+  question: What is the maximum penalty under the Corporations Act 2001 for insider trading?
+  expected_answer: null
+  expected_answer_keywords: []
+  expected_citations: []
+  expected_state: refused
+  difficulty: easy
+  verified: true
+  notes: 'Corporations Act 2001 is not in the 7-doc corpus. From PR #1.'
