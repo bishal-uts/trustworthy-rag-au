@@ -51,6 +51,14 @@ class ConfidenceSettings(BaseModel):
     lr_classes: list[str] = Field(default_factory=lambda: ["confident", "hedged", "refused"])
     lr_intercepts: list[float] = Field(default_factory=list)
     lr_coefs: list[list[float]] = Field(default_factory=list)
+    # v0.4: prediction-confidence gate (repurposed from the v0.1 top1_dense floor).
+    # When LR mode is active AND the winning class probability is below this
+    # threshold, refuse instead of committing to the LR's borderline guess.
+    # This catches the case where LR routing is itself uncertain (e.g.
+    # P(confident)=0.42, P(hedged)=0.38, P(refused)=0.20 -> argmax says
+    # confident but the model is barely sure).
+    # Set to 0.0 to disable. Only applies when use_lr_calibration is True.
+    lr_min_prediction_confidence: float = 0.50
 
 
 class GenerationSettings(BaseModel):

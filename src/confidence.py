@@ -135,6 +135,22 @@ def score_and_route(
         # Replace the heuristic `value` in the report with the LR's max-class
         # probability — gives the UI/output a meaningful "confidence" number.
         report = ConfidenceReport(value=lr_value, signals=signals)
+
+        # v0.4: prediction-confidence floor (repurposed top1_dense_floor).
+        # If LR is uncertain (max-class probability below threshold), abstain
+        # rather than commit to a borderline guess. Skip if the LR already
+        # predicted refused — no need to "refuse a refusal".
+        min_conf = cfg.lr_min_prediction_confidence
+        if state != "refused" and min_conf > 0 and lr_value < min_conf:
+            return RoutingDecision(
+                state="refused",
+                report=report,
+                refused_reason=(
+                    f"LR uncertain: P(predicted={state})={lr_value:.2f} "
+                    f"below min_prediction_confidence {min_conf:.2f}"
+                ),
+            )
+
         if state == "refused":
             return RoutingDecision(
                 state="refused",

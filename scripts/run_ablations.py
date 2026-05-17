@@ -93,12 +93,16 @@ ABLATIONS: list[dict] = [
 
 def comparison_md(rows: list[tuple[dict, Aggregate]]) -> str:
     """Build the side-by-side comparison table."""
+    # If any run had a judge, add a column for answer-correctness rate.
+    has_judge = any((agg.answer_correctness or {}).get("n_judged", 0) > 0 for _, agg in rows)
+    extra_cols = " Judge acc |" if has_judge else ""
     header = (
         "| Run | Retrieval | Faith | Floor | "
-        "State acc | Refuse F1 | Recall@5 | Cite acc | Faith rate | "
-        "LLM call% | p50 ms |"
+        "State acc | Refuse F1 | Recall@5 | Cite acc | Faith rate |"
+        + extra_cols
+        + " LLM call% | p50 ms |"
     )
-    sep = "|" + "---|" * 11
+    sep = "|" + "---|" * (12 if has_judge else 11)
     lines = [
         "# Ablation comparison",
         "",
@@ -110,23 +114,26 @@ def comparison_md(rows: list[tuple[dict, Aggregate]]) -> str:
     ]
     for cfg, agg in rows:
         rec5 = agg.retrieval_recall.get(5, 0.0)
-        lines.append(
-            "| "
-            + " | ".join([
-                cfg["run_id"],
-                cfg["retrieval_mode"],
-                "on" if cfg["enable_faithfulness"] else "off",
-                "on" if cfg["enable_floor_gate"] else "off",
-                f"{agg.state_accuracy:.1%}",
-                f"{agg.refusal['f1']:.1%}",
-                f"{rec5:.1%}",
-                f"{agg.citation_correctness:.1%}",
-                f"{agg.faithfulness_rate:.1%}",
-                f"{agg.latency['llm_call_rate']:.1%}",
-                f"{agg.latency['p50_ms']:.0f}",
-            ])
-            + " |"
-        )
+        ac = agg.answer_correctness or {}
+        judge_str = f"{ac['rate']:.1%} (n={int(ac.get('n_judged', 0))})" if ac.get("n_judged", 0) > 0 else "—"
+        cells = [
+            cfg["run_id"],
+            cfg["retrieval_mode"],
+            "on" if cfg["enable_faithfulness"] else "off",
+            "on" if cfg["enable_floor_gate"] else "off",
+            f"{agg.state_accuracy:.1%}",
+            f"{agg.refusal['f1']:.1%}",
+            f"{rec5:.1%}",
+            f"{agg.citation_correctness:.1%}",
+            f"{agg.faithfulness_rate:.1%}",
+        ]
+        if has_judge:
+            cells.append(judge_str)
+        cells.extend([
+            f"{agg.latency['llm_call_rate']:.1%}",
+            f"{agg.latency['p50_ms']:.0f}",
+        ])
+        lines.append("| " + " | ".join(cells) + " |")
 
     lines.extend([
         "",
@@ -160,6 +167,18 @@ def main() -> int:
         action="store_true",
         help="Skip writing per-run and cross-ablation PNG plots",
     )
+    parser.add_argument(
+        "--with-judge", action="store_true",
+        help="Run LLM judge on each answered question (composite: keyword -> NLI -> LLM)",
+    )
+    parser.add_argument(
+        "--judge-llm-id", default="deepseek-r1-8b",
+        help="LLM id (from models.yaml) to use as the LLM judge. Default: deepseek-r1-8b",
+    )
+    parser.add_argument(
+        "--judge-nli-id", default=None,
+        help="NLI id to use in the composite judge. Default: same as --nli (or settings.default_nli).",
+    )
     args = parser.parse_args()
 
     only = {r.strip() for r in args.only.split(",")} if args.only else None
@@ -171,6 +190,19 @@ def main() -> int:
     questions = load_benchmark(Path(args.benchmark))
     console.print(f"[bold]Loaded {len(questions)} questions[/bold]")
     console.print(f"[bold]Running {len(plan)} ablation(s):[/bold] {[a['run_id'] for a in plan]}")
+
+    # Build judge once and reuse across ablations (saves re-loading model files).
+    judge = None
+    if args.with_judge:
+        from eval.llm_judge import build_default_judge
+        if args.llm and args.llm == args.judge_llm_id:
+            console.print(
+                f"[red]WARNING:[/red] --judge-llm-id ({args.judge_llm_id}) matches --llm; "
+                "this is the judge-generator circularity problem."
+            )
+        judge_nli_id = args.judge_nli_id or args.nli
+        judge = build_default_judge(nli_id=judge_nli_id, llm_judge_id=args.judge_llm_id)
+        console.print(f"[bold]Judge enabled[/bold]: composite (keyword -> nli={judge_nli_id} -> llm={args.judge_llm_id})")
 
     rows: list[tuple[dict, Aggregate]] = []
     out_root = Path(args.output_dir)
@@ -187,6 +219,7 @@ def main() -> int:
             retrieval_mode=cfg["retrieval_mode"],
             enable_faithfulness=cfg["enable_faithfulness"],
             enable_floor_gate=cfg["enable_floor_gate"],
+            judge=judge,
             limit=args.limit,
         )
         agg = aggregate(results)

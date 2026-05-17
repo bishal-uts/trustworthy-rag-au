@@ -200,6 +200,10 @@ class QuestionResult:
     llm_called: bool
     elapsed_ms: int
     error: str | None = None  # set if the pipeline raised; metrics ignore these rows
+    # v0.4: LLM judge verdict (when --with-judge is passed to the runner)
+    judge_label: str | None = None  # "YES" | "PARTIAL" | "NO" | "UNKNOWN" | None (not judged)
+    judge_reasoning: str = ""
+    judge_name: str = ""  # which judge produced the verdict ("keyword" / "nli" / "llm")
 
 
 # -------- State classification --------
@@ -322,6 +326,35 @@ def latency_stats(results: list[QuestionResult]) -> dict[str, float]:
     }
 
 
+# -------- Judge-based answer correctness (v0.4) --------
+
+def answer_correctness_rate(
+    results: list[QuestionResult], partial_credit: float = 0.5
+) -> dict[str, float]:
+    """Aggregate the LLM judge verdicts into a single correctness score.
+
+    Only counts answered (non-refused) questions where a judge actually ran.
+    YES = 1.0, PARTIAL = partial_credit (default 0.5), NO = 0, UNKNOWN = excluded.
+
+    Returns a dict with: 'rate' (the aggregate), counts of each label, and 'n_judged'.
+    """
+    judged = [
+        r for r in results
+        if r.error is None and r.judge_label is not None and r.judge_label != "UNKNOWN"
+    ]
+    counts: dict[str, int] = {"YES": 0, "PARTIAL": 0, "NO": 0, "UNKNOWN": 0}
+    for r in results:
+        if r.error is None and r.judge_label:
+            counts[r.judge_label] = counts.get(r.judge_label, 0) + 1
+    if not judged:
+        return {"rate": 0.0, "n_judged": 0, **counts}
+    score = sum(
+        1.0 if r.judge_label == "YES" else partial_credit if r.judge_label == "PARTIAL" else 0.0
+        for r in judged
+    )
+    return {"rate": score / len(judged), "n_judged": len(judged), **counts}
+
+
 # -------- Aggregate --------
 
 @dataclass
@@ -338,6 +371,8 @@ class Aggregate:
     faithfulness_rate: float
     latency: dict[str, float]
     per_category_accuracy: dict[str, float] = field(default_factory=dict)
+    # v0.4: LLM judge aggregate (zeros when judge wasn't enabled)
+    answer_correctness: dict[str, float] = field(default_factory=lambda: {"rate": 0.0, "n_judged": 0})
 
 
 def per_category_accuracy(results: list[QuestionResult]) -> dict[str, float]:
@@ -360,6 +395,7 @@ def aggregate(results: list[QuestionResult]) -> Aggregate:
         faithfulness_rate=faithfulness_rate(results),
         latency=latency_stats(results),
         per_category_accuracy=per_category_accuracy(results),
+        answer_correctness=answer_correctness_rate(results),
     )
 
 

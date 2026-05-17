@@ -34,6 +34,11 @@ import yaml  # noqa: E402
 from rich.console import Console  # noqa: E402
 from rich.table import Table  # noqa: E402
 
+from eval.llm_judge import (  # noqa: E402
+    CompositeJudge,
+    JudgeInput,
+    build_default_judge,
+)
 from eval.metrics import (  # noqa: E402
     Aggregate,
     QuestionResult,
@@ -79,12 +84,17 @@ def load_benchmark(path: Path) -> list[dict]:
 
 # -------- Grading: RAGOutput -> QuestionResult --------
 
-def grade(q: dict, out: RAGOutput, elapsed_ms: int) -> QuestionResult:
+def grade(
+    q: dict,
+    out: RAGOutput,
+    elapsed_ms: int,
+    judge: CompositeJudge | None = None,
+) -> QuestionResult:
     expected_doc_ids = sorted({c["doc"] for c in (q.get("expected_citations") or [])})
     cited_doc_ids = sorted({c.doc for c in out.citations})
     retrieved_doc_ids = [c.doc for c in out.evidence.retrieved_chunks]
     has_faith = out.state != "refused" and bool(out.faithfulness.claims)
-    return QuestionResult(
+    qr = QuestionResult(
         qid=q["id"],
         category=q["category"],
         expected_state=q["expected_state"],
@@ -98,6 +108,23 @@ def grade(q: dict, out: RAGOutput, elapsed_ms: int) -> QuestionResult:
         llm_called=out.llm_called,
         elapsed_ms=elapsed_ms,
     )
+    # v0.4: run LLM judge on answered questions where we have a reference
+    if judge is not None and out.state != "refused" and out.answer and q.get("expected_answer"):
+        ji = JudgeInput(
+            question=q["question"],
+            expected_answer=q.get("expected_answer"),
+            expected_keywords=q.get("expected_answer_keywords") or [],
+            actual_answer=out.answer,
+        )
+        try:
+            jr = judge.judge(ji)
+            qr.judge_label = jr.label
+            qr.judge_reasoning = jr.reasoning
+            qr.judge_name = jr.judge_name
+        except Exception as e:
+            qr.judge_label = "UNKNOWN"
+            qr.judge_reasoning = f"judge error: {type(e).__name__}: {e}"
+    return qr
 
 
 def error_result(q: dict, exc: Exception) -> QuestionResult:
@@ -136,6 +163,14 @@ def write_summary_md(
     rr = agg.retrieval_recall
     lat = agg.latency
     refusal = agg.refusal
+    ac = agg.answer_correctness or {}
+    ac_line = ""
+    if ac.get("n_judged", 0) > 0:
+        ac_line = (
+            f"- **Answer correctness (LLM-judged, n={int(ac['n_judged'])}):** {ac['rate']:.1%}"
+            f" (YES={int(ac.get('YES',0))}, PARTIAL={int(ac.get('PARTIAL',0))}, "
+            f"NO={int(ac.get('NO',0))}, UNKNOWN={int(ac.get('UNKNOWN',0))})\n"
+        )
     lines = [
         f"# Benchmark run: `{run_id}`",
         "",
@@ -147,6 +182,7 @@ def write_summary_md(
         f"- **State accuracy:** {agg.state_accuracy:.1%}",
         f"- **Citation correctness (confident only):** {agg.citation_correctness:.1%}",
         f"- **Faithfulness rate (answered only):** {agg.faithfulness_rate:.1%}",
+        ac_line.rstrip(),
         f"- **Refusal P/R/F1:** {refusal['precision']:.1%} / {refusal['recall']:.1%} / {refusal['f1']:.1%}"
         f" (tp={int(refusal['tp'])}, fp={int(refusal['fp'])}, fn={int(refusal['fn'])})",
         f"- **Latency:** mean {lat['mean_ms']:.0f} ms · p50 {lat['p50_ms']:.0f} · p95 {lat['p95_ms']:.0f}"
@@ -231,6 +267,7 @@ def run_benchmark(
     enable_routing: bool = True,
     use_reranker: bool = False,
     reranker_id: str = "bge-reranker-base",
+    judge: CompositeJudge | None = None,
     limit: int | None = None,
 ) -> tuple[list[QuestionResult], list[RAGOutput | None]]:
     results: list[QuestionResult] = []
@@ -255,12 +292,13 @@ def run_benchmark(
                 reranker_id=reranker_id,
             )
             elapsed = int((time.time() - t0) * 1000)
-            r = grade(q, out, elapsed_ms=elapsed)
+            r = grade(q, out, elapsed_ms=elapsed, judge=judge)
             outputs.append(out)
             colour = "green" if r.predicted_state == r.expected_state else "yellow"
+            judge_str = f" · judge={r.judge_label}" if r.judge_label else ""
             console.print(
                 f"[{colour}]{r.predicted_state}[/{colour}] (expected {r.expected_state}) · "
-                f"conf={r.confidence_value:.2f} · llm={r.llm_called} · {elapsed}ms"
+                f"conf={r.confidence_value:.2f} · llm={r.llm_called} · {elapsed}ms{judge_str}"
             )
         except Exception as e:
             r = error_result(q, e)
@@ -304,11 +342,36 @@ def main() -> int:
         "--seed", type=int, default=None,
         help="Optional run-tag for reproducibility; stored in config.json (does not affect retrieval determinism)",
     )
+    parser.add_argument(
+        "--with-judge", action="store_true",
+        help="Run LLM judge on each answered question (composite: keyword -> NLI -> LLM)",
+    )
+    parser.add_argument(
+        "--judge-llm-id", default="deepseek-r1-8b",
+        help="LLM id (from models.yaml) to use as the LLM judge. MUST differ from --llm to avoid circularity. Default: deepseek-r1-8b",
+    )
+    parser.add_argument(
+        "--judge-nli-id", default=None,
+        help="NLI id to use in the composite judge. Default: same as --nli (or settings.default_nli).",
+    )
 
     args = parser.parse_args()
 
     questions = load_benchmark(Path(args.benchmark))
     console.print(f"[bold]Loaded {len(questions)} questions from {args.benchmark}[/bold]")
+
+    # Build the LLM judge if requested. Composite judge: keyword -> NLI -> LLM.
+    judge = None
+    if args.with_judge:
+        judge_llm_id = args.judge_llm_id
+        if args.llm and args.llm == judge_llm_id:
+            console.print(
+                f"[red]WARNING:[/red] --judge-llm-id ({judge_llm_id}) matches --llm; "
+                "this is the judge-generator circularity problem. Consider a different model."
+            )
+        judge_nli_id = args.judge_nli_id or args.nli  # default to same NLI as the pipeline
+        judge = build_default_judge(nli_id=judge_nli_id, llm_judge_id=judge_llm_id)
+        console.print(f"[bold]Judge enabled[/bold]: composite (keyword -> nli={judge_nli_id} -> llm={judge_llm_id})")
 
     config = {
         "run_id": args.run_id,
@@ -322,6 +385,9 @@ def main() -> int:
         "enable_floor_gate": not args.no_floor_gate,
         "use_reranker": args.use_reranker,
         "reranker_id": args.reranker_id if args.use_reranker else None,
+        "with_judge": args.with_judge,
+        "judge_llm_id": args.judge_llm_id if args.with_judge else None,
+        "judge_nli_id": (args.judge_nli_id or args.nli) if args.with_judge else None,
         "seed": args.seed,
         "limit": args.limit,
     }
@@ -337,6 +403,7 @@ def main() -> int:
         enable_floor_gate=not args.no_floor_gate,
         use_reranker=args.use_reranker,
         reranker_id=args.reranker_id,
+        judge=judge,
         limit=args.limit,
     )
     agg = aggregate(results)

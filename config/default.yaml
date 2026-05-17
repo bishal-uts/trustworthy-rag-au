@@ -46,6 +46,9 @@ confidence:
     - [-0.13049863533190134, -0.6985958743171999, 0.6142374723920483]   # hedged
     - [-0.36242772913444204, -0.8934299162487918, -1.4055747526712556]  # refused
   # Feature order: [top1_dense, rank_overlap, nli_entail]
+  # v0.4: prediction-confidence floor (repurposed from v0.1 top1_dense_floor).
+  # When LR mode is active and max-class probability is below this, abstain.
+  lr_min_prediction_confidence: 0.50
 
 # Generation
 generation:
