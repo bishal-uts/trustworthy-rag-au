@@ -47,9 +47,15 @@ debug*.json
 .cache/
 /models/         # top-level only — do NOT match src/models/
 
-# Eval outputs (keep folder, drop contents)
+# Eval outputs (keep folder, drop contents) — but keep the documented sample
 eval/results/*.json
 !eval/results/.gitkeep
+!eval/results/sample_output.json
+# Generated plot directories (per-run subfolders) — keep sample's plots as doc
+eval/results/*_plots/
+!eval/results/sample_output_plots/
+# Judge result cache — local, regenerated on demand
+eval/.judge_cache/
 
 # Gradio runtime artifacts
 gradio_cached_examples/

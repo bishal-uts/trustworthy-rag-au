@@ -1,0 +1,221 @@
+{
+  "_comment": "SAMPLE OUTPUT — numbers below are illustrative, not from a real run. Real results come from `python -m eval.comparison_eval`. This file shows the output schema so README and plot scripts have something to point at without requiring a full run.",
+  "config": {
+    "llm": "qwen3.5-9b",
+    "embedder": "bge-large",
+    "nli": "deberta-v3-large-mnli",
+    "top_k": 10,
+    "judge_llm": "deepseek-r1-8b",
+    "strict_correct": false,
+    "loss_matrix": {
+      "correct_confident": 0.0,
+      "correct_hedged": 0.5,
+      "wrong_confident": 10.0,
+      "wrong_hedged": 3.0,
+      "refused_answerable": 1.0,
+      "refused_unanswerable": 0.0
+    },
+    "n_questions": 20,
+    "baselines": ["no_rag", "dense_only", "hybrid", "hybrid_refuse", "trustworthy"],
+    "timestamp": "2026-05-17T15:30:00"
+  },
+  "summary": [
+    {
+      "system": "no_rag",
+      "n_total": 20,
+      "coverage": 1.0,
+      "accuracy_on_answered": 0.20,
+      "effective_accuracy": 0.20,
+      "hallucination_rate": 0.85,
+      "refusal_precision": 0.0,
+      "risk_adjusted_loss": 142.0,
+      "mean_elapsed_ms": 3200
+    },
+    {
+      "system": "dense_only",
+      "n_total": 20,
+      "coverage": 1.0,
+      "accuracy_on_answered": 0.55,
+      "effective_accuracy": 0.55,
+      "hallucination_rate": 0.40,
+      "refusal_precision": 0.0,
+      "risk_adjusted_loss": 76.5,
+      "mean_elapsed_ms": 4800
+    },
+    {
+      "system": "hybrid",
+      "n_total": 20,
+      "coverage": 1.0,
+      "accuracy_on_answered": 0.65,
+      "effective_accuracy": 0.65,
+      "hallucination_rate": 0.30,
+      "refusal_precision": 0.0,
+      "risk_adjusted_loss": 56.0,
+      "mean_elapsed_ms": 5100
+    },
+    {
+      "system": "hybrid_refuse",
+      "n_total": 20,
+      "coverage": 0.70,
+      "accuracy_on_answered": 0.85,
+      "effective_accuracy": 0.60,
+      "hallucination_rate": 0.20,
+      "refusal_precision": 0.83,
+      "risk_adjusted_loss": 24.5,
+      "mean_elapsed_ms": 4200
+    },
+    {
+      "system": "trustworthy",
+      "n_total": 20,
+      "coverage": 0.65,
+      "accuracy_on_answered": 0.92,
+      "effective_accuracy": 0.60,
+      "hallucination_rate": 0.08,
+      "refusal_precision": 0.85,
+      "risk_adjusted_loss": 14.0,
+      "mean_elapsed_ms": 4800
+    }
+  ],
+  "per_category": {
+    "trustworthy": {
+      "answerable_easy": {
+        "system": "trustworthy",
+        "n_total": 5,
+        "coverage": 1.0,
+        "accuracy_on_answered": 1.0,
+        "effective_accuracy": 1.0,
+        "hallucination_rate": 0.0,
+        "refusal_precision": 0.0,
+        "risk_adjusted_loss": 0.0,
+        "mean_elapsed_ms": 4500
+      },
+      "unanswerable_out_of_scope": {
+        "system": "trustworthy",
+        "n_total": 7,
+        "coverage": 0.0,
+        "accuracy_on_answered": 0.0,
+        "effective_accuracy": 0.0,
+        "hallucination_rate": 0.0,
+        "refusal_precision": 1.0,
+        "risk_adjusted_loss": 0.0,
+        "mean_elapsed_ms": 1800
+      },
+      "adversarial_misleading": {
+        "system": "trustworthy",
+        "n_total": 2,
+        "coverage": 0.5,
+        "accuracy_on_answered": 1.0,
+        "effective_accuracy": 0.5,
+        "hallucination_rate": 0.0,
+        "refusal_precision": 1.0,
+        "risk_adjusted_loss": 1.0,
+        "mean_elapsed_ms": 5200
+      }
+    },
+    "no_rag": {
+      "answerable_easy": {
+        "system": "no_rag",
+        "n_total": 5,
+        "coverage": 1.0,
+        "accuracy_on_answered": 0.4,
+        "effective_accuracy": 0.4,
+        "hallucination_rate": 0.6,
+        "refusal_precision": 0.0,
+        "risk_adjusted_loss": 30.0,
+        "mean_elapsed_ms": 3100
+      },
+      "unanswerable_out_of_scope": {
+        "system": "no_rag",
+        "n_total": 7,
+        "coverage": 1.0,
+        "accuracy_on_answered": 0.0,
+        "effective_accuracy": 0.0,
+        "hallucination_rate": 1.0,
+        "refusal_precision": 0.0,
+        "risk_adjusted_loss": 70.0,
+        "mean_elapsed_ms": 2900
+      },
+      "adversarial_misleading": {
+        "system": "no_rag",
+        "n_total": 2,
+        "coverage": 1.0,
+        "accuracy_on_answered": 0.0,
+        "effective_accuracy": 0.0,
+        "hallucination_rate": 1.0,
+        "refusal_precision": 0.0,
+        "risk_adjusted_loss": 20.0,
+        "mean_elapsed_ms": 3000
+      }
+    }
+  },
+  "per_question": {
+    "trustworthy": [
+      {
+        "question_id": "smoke_001",
+        "state": "confident",
+        "answer": "An APRA-regulated entity must notify APRA of a material information security incident as soon as possible and no later than 72 hours after becoming aware of the incident.",
+        "citations": [
+          {"doc": "CPS 234 Information Security", "section": "Notification of incidents", "paragraph": "35", "span": "no later than 72 hours after becoming aware"}
+        ],
+        "retrieved_chunks": [],
+        "llm_called": true,
+        "elapsed_ms": 4200,
+        "correctness": "YES",
+        "unfaithful_claim_count": 0,
+        "total_claim_count": 1
+      },
+      {
+        "question_id": "smoke_002",
+        "state": "refused",
+        "answer": null,
+        "citations": [],
+        "retrieved_chunks": [],
+        "llm_called": false,
+        "elapsed_ms": 800,
+        "correctness": "UNKNOWN",
+        "unfaithful_claim_count": 0,
+        "total_claim_count": 0
+      },
+      {
+        "question_id": "adv_001",
+        "state": "confident",
+        "answer": "The notification deadline under CPS 234 §35 is 72 hours, not 48 hours. The question's premise is incorrect.",
+        "citations": [
+          {"doc": "CPS 234 Information Security", "section": "Notification of incidents", "paragraph": "35", "span": "no later than 72 hours after becoming aware"}
+        ],
+        "retrieved_chunks": [],
+        "llm_called": true,
+        "elapsed_ms": 5100,
+        "correctness": "YES",
+        "unfaithful_claim_count": 0,
+        "total_claim_count": 2
+      }
+    ],
+    "no_rag": [
+      {
+        "question_id": "smoke_002",
+        "state": "confident",
+        "answer": "Under the AML/CTF Rules, cryptocurrency-to-cash transactions must be reported to AUSTRAC when they exceed AUD 10,000 in value...",
+        "citations": [],
+        "retrieved_chunks": [],
+        "llm_called": true,
+        "elapsed_ms": 2800,
+        "correctness": "NO",
+        "unfaithful_claim_count": 3,
+        "total_claim_count": 3
+      },
+      {
+        "question_id": "adv_001",
+        "state": "confident",
+        "answer": "Under CPS 234, material information security incidents must be notified to APRA within 48 hours of becoming aware...",
+        "citations": [],
+        "retrieved_chunks": [],
+        "llm_called": true,
+        "elapsed_ms": 2900,
+        "correctness": "NO",
+        "unfaithful_claim_count": 2,
+        "total_claim_count": 2
+      }
+    ]
+  }
+}
