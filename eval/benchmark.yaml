@@ -1,43 +1,56 @@
-# Benchmark — v0.2 (extended for comparison eval).
+# Benchmark — v0.3 (reconciled: PR #1 baseline framework + Phase A+B ablations).
 #
 # IMPORTANT: This file is NOT covered by the project's MIT licence. It is
 # the ground truth used to compare trustworthy RAG vs baseline RAGs.
 #
-# v0.1 had 5 questions (the originals kept below, unchanged).
-# v0.2 adds:
-#   - expected_answer_keywords  (list of strings for cheap keyword judge)
-#   - difficulty                (easy | medium | hard)
-#   - additional categories     (answerable_multi_chunk, adversarial, ambiguous)
+# Lineage:
+#   v0.1 — 5 smoke questions (originals, all `smoke_*`).
+#   v0.2 — added 15 questions via PR #1 (easy, multi-chunk, crossdoc,
+#          inferential, ambiguous, adversarial_misleading, oos).
+#   v0.3 — merged Phase A+B work: ae_*, ah_*, uid_*, uos_*, amb_*, advf_*.
 #
-# Target: ~100 questions across categories for stat. significance. The 20
-# below are seeded examples — extend by reading the source PDFs and
-# following the same schema. Any entry marked `verified: false` needs an
-# expert to confirm the expected answer / citation against the actual PDF
-# before being trusted in results.
+# Total: 49 questions across 10 categories.
+#
+# Any entry marked `verified: false` needs an expert to confirm the
+# expected answer / citation against the actual PDF before being trusted in
+# results. Drafted labels are the v0.3 additions; PR #1's labels carry their
+# original verification status.
 #
 # Schema per question:
 #   id                          unique short id
 #   category                    see categories below
 #   question                    natural-language question
 #   expected_answer             reference answer text (used by NLI/LLM judges)
+#                               or null for refused questions
 #   expected_answer_keywords    list of substrings used by KeywordJudge
+#                               (empty list for refused)
 #   expected_citations          list of {doc, section, paragraph}
+#                               (empty list for refused)
 #   expected_state              confident | hedged | refused
 #   difficulty                  easy | medium | hard
 #   verified                    true if confirmed against source PDF
 #   notes                       free text — source pointer, gotchas
 #
-# Categories:
+# Categories (10 — see also eval/metrics.ANSWERABLE_CATEGORIES /
+# UNANSWERABLE_CATEGORIES):
 #   answerable_easy             single chunk supports the answer
+#   answerable_hard             multi-paragraph synthesis within one doc
 #   answerable_multi_chunk      needs 2-3 chunks in the same doc
 #   answerable_crossdoc         needs chunks across 2+ documents
 #   answerable_inferential      requires reasoning over the chunk text
-#   unanswerable_out_of_scope   answer not in the 7-doc corpus
-#   ambiguous                   under-specified; system should hedge / clarify
-#   adversarial_misleading      premise embedded in the question is false
+#   ambiguous                   under-specified; expect hedged
+#   adversarial_misleading      false premise in question; expect confident
+#                               *correction* (system pushes back on the premise)
+#   adversarial_fabricated      premise references content that isn't in the
+#                               corpus at all; expect refusal
+#   unanswerable_in_domain      topic is in scope but the specific question isn't
+#   unanswerable_out_of_scope   related domain not covered by the 7-doc corpus
 
 questions:
-  # ---------- v0.1 originals (verified) ----------
+
+  # ============================================================
+  # answerable_easy (12 questions)
+  # ============================================================
 
   - id: smoke_001
     category: answerable_easy
@@ -50,28 +63,6 @@ questions:
     difficulty: easy
     verified: true
     notes: "Source: CPS 234 §35. Used as the v0.1 golden question."
-
-  - id: smoke_002
-    category: unanswerable_out_of_scope
-    question: "What is the AUSTRAC reporting threshold for cryptocurrency-to-cash transactions under the AML/CTF Rules?"
-    expected_answer: null
-    expected_answer_keywords: []
-    expected_citations: []
-    expected_state: refused
-    difficulty: easy
-    verified: true
-    notes: "AML/CTF Rules are not in the 7-doc corpus. Should refuse without LLM call."
-
-  - id: smoke_003
-    category: unanswerable_out_of_scope
-    question: "What is the recipe for pavlova?"
-    expected_answer: null
-    expected_answer_keywords: []
-    expected_citations: []
-    expected_state: refused
-    difficulty: easy
-    verified: true
-    notes: "Wholly off-domain. Should refuse trivially on retrieval scores."
 
   - id: smoke_004
     category: answerable_easy
@@ -95,9 +86,7 @@ questions:
     expected_state: confident
     difficulty: easy
     verified: true
-    notes: "Source: CPS 230 §13. §24 lists categories. No standalone definition section."
-
-  # ---------- v0.2 additions: answerable_easy ----------
+    notes: "Source: CPS 230 §13."
 
   - id: easy_001
     category: answerable_easy
@@ -123,12 +112,198 @@ questions:
     verified: false
     notes: "TODO: confirm against Privacy Act preamble / Schedule 1."
 
-  # ---------- v0.2 additions: answerable_multi_chunk ----------
+  - id: ae_006
+    category: answerable_easy
+    question: "Within how many business days must an APRA-regulated entity notify APRA of a material information security control weakness it cannot remediate in a timely manner?"
+    expected_answer: "As soon as possible and no later than 10 business days."
+    expected_answer_keywords: ["10 business days", "control weakness"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Notification of weaknesses", paragraph: "36"}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "Source: CPS 234 §36."
+
+  - id: ae_007
+    category: answerable_easy
+    question: "Within how many hours must an APRA-regulated entity notify APRA of an operational risk incident likely to have a material financial impact or impact on its ability to maintain its critical operations?"
+    expected_answer: "As soon as possible and no later than 72 hours after becoming aware."
+    expected_answer_keywords: ["72 hours", "operational risk incident"]
+    expected_citations:
+      - {doc: "CPS 230", section: "Notification to APRA", paragraph: "33"}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "Source: CPS 230 §33."
+
+  - id: ae_008
+    category: answerable_easy
+    question: "How often must an APRA-regulated entity conduct a business continuity exercise under CPS 230?"
+    expected_answer: "At least annually — the systematic testing program for the BCP must include an annual business continuity exercise."
+    expected_answer_keywords: ["annual", "business continuity exercise"]
+    expected_citations:
+      - {doc: "CPS 230", section: "Business continuity testing", paragraph: "43"}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "Source: CPS 230 §43."
+
+  - id: ae_009
+    category: answerable_easy
+    question: "For senior managers, executive directors and highly-paid material risk-takers, what is the minimum clawback period under CPS 511?"
+    expected_answer: "At least two years from the date of payment or vesting of variable remuneration."
+    expected_answer_keywords: ["two years", "clawback"]
+    expected_citations:
+      - {doc: "CPS 511", section: "Clawback", paragraph: "36"}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "Source: CPS 511 §36(a)."
+
+  - id: ae_010
+    category: answerable_easy
+    question: "Under CPS 511, what minimum portion of a CEO's total variable remuneration must be deferred, and over what minimum period?"
+    expected_answer: "At least 60 per cent of the CEO's total variable remuneration must be deferred over a minimum deferral period of six years, vesting no faster than on a pro-rata basis and only after four years."
+    expected_answer_keywords: ["60 per cent", "six years", "CEO"]
+    expected_citations:
+      - {doc: "CPS 511", section: "Deferral", paragraph: "41"}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "Source: CPS 511 §41(a)."
+
+  - id: ae_011
+    category: answerable_easy
+    question: "Within what timeframe should a financial firm acknowledge receipt of a complaint under ASIC RG 271?"
+    expected_answer: "Within 24 hours (or one business day) of receiving the complaint."
+    expected_answer_keywords: ["24 hours", "one business day", "acknowledge"]
+    expected_citations:
+      - {doc: "RG 271", section: "Acknowledging complaints", paragraph: "51"}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "Source: RG 271.51."
+
+  - id: ae_012
+    category: answerable_easy
+    question: "What is the maximum timeframe for a financial firm to provide an IDR response for a standard complaint under RG 271?"
+    expected_answer: "No later than 30 calendar days after receiving the complaint."
+    expected_answer_keywords: ["30 calendar days", "IDR response"]
+    expected_citations:
+      - {doc: "RG 271", section: "Maximum IDR timeframes", paragraph: "56"}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "Source: RG 271.56."
+
+  # ============================================================
+  # answerable_hard (8) — multi-paragraph synthesis within one doc
+  # ============================================================
+
+  - id: ah_001
+    category: answerable_hard
+    question: "Under CPS 234, what three factors must the nature and frequency of an APRA-regulated entity's systematic testing program be commensurate with?"
+    expected_answer: "(a) the rate at which vulnerabilities and threats change; (b) the criticality and sensitivity of the information asset; and (c) the consequences of an information security incident."
+    expected_answer_keywords: ["vulnerabilities", "criticality", "consequences"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Testing control effectiveness", paragraph: "27"}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "Source: CPS 234 §27(a)-(c)."
+
+  - id: ah_002
+    category: answerable_hard
+    question: "Under CPS 234, what two qualifications must personnel conducting information security control testing have?"
+    expected_answer: "They must be appropriately skilled and functionally independent specialists."
+    expected_answer_keywords: ["appropriately skilled", "functionally independent"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Testing control effectiveness", paragraph: "30"}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "Source: CPS 234 §30."
+
+  - id: ah_003
+    category: answerable_hard
+    question: "How does CPS 511 distinguish between 'malus' and 'clawback'?"
+    expected_answer: "Malus reduces or cancels unvested variable remuneration before it vests; clawback recovers some or all variable remuneration after it has already been paid or vested."
+    expected_answer_keywords: ["malus", "clawback", "vested", "paid"]
+    expected_citations:
+      - {doc: "CPS 511", section: "Definitions", paragraph: "20"}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "Source: CPS 511 §20 definitions. Requires synthesising both definitions."
+
+  - id: ah_004
+    category: answerable_hard
+    question: "Under CPS 511, what two features must clawback arrangements include for senior managers, executive directors and highly-paid material risk-takers?"
+    expected_answer: "(a) a period of at least two years from the date of payment or vesting within which clawback may apply; and (b) application of clawback where prescribed circumstances exist."
+    expected_answer_keywords: ["two years", "payment", "vesting"]
+    expected_citations:
+      - {doc: "CPS 511", section: "Clawback", paragraph: "36"}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "Source: CPS 511 §36(a)-(b)."
+
+  - id: ah_005
+    category: answerable_hard
+    question: "Under CPS 230, what must an APRA-regulated entity's operational risk management be integrated into, and what must business continuity planning be consistent with?"
+    expected_answer: "Operational risk management must be integrated into the entity's overall risk management framework and processes. Business continuity planning must be consistent with, and not conflict with or undermine, the entity's recovery and exit planning."
+    expected_answer_keywords: ["risk management framework", "business continuity", "recovery and exit"]
+    expected_citations:
+      - {doc: "CPS 230", section: "Operational risk management", paragraph: "18"}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "Source: CPS 230 §18."
+
+  - id: ah_006
+    category: answerable_hard
+    question: "Under the Privacy Act, what is an 'eligible data breach' for the purposes of the notifiable data breach scheme?"
+    expected_answer: "Broadly, an eligible data breach occurs where there is unauthorised access to, unauthorised disclosure of, or loss of, personal information held by an entity, and a reasonable person would conclude the breach is likely to result in serious harm to any of the individuals to whom the information relates."
+    expected_answer_keywords: ["unauthorised access", "unauthorised disclosure", "loss", "serious harm"]
+    expected_citations:
+      - {doc: "Privacy Act", section: "Eligible data breach", paragraph: "26WE"}
+    expected_state: confident
+    difficulty: hard
+    verified: false
+    notes: "Source: Privacy Act Part IIIC, s 26WE. Multi-element definition."
+
+  - id: ah_007
+    category: answerable_hard
+    question: "Under RG 271, what must an IDR response from a financial firm to a complainant include?"
+    expected_answer: "(a) the final outcome of the complaint (either confirmation of actions taken to fully resolve it, or reasons for full or partial rejection); (b) the complainant's right to take the complaint to AFCA if not satisfied; and (c) AFCA's contact details."
+    expected_answer_keywords: ["final outcome", "AFCA", "contact details"]
+    expected_citations:
+      - {doc: "RG 271", section: "IDR response content", paragraph: "53"}
+    expected_state: confident
+    difficulty: medium
+    verified: false
+    notes: "Source: RG 271.53."
+
+  - id: ah_008
+    category: answerable_hard
+    question: "Under CPS 234, what is the Board of an APRA-regulated entity ultimately responsible for, and what must it ensure?"
+    expected_answer: "The Board is ultimately responsible for the information security of the entity. The Board must ensure that the entity maintains information security in a manner commensurate with the size and extent of threats to its information assets, and which enables the continued sound operation of the entity."
+    expected_answer_keywords: ["Board", "ultimately responsible", "commensurate", "threats"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Board responsibility", paragraph: "13"}
+    expected_state: confident
+    difficulty: easy
+    verified: false
+    notes: "Source: CPS 234 §13."
+
+  # ============================================================
+  # answerable_multi_chunk (2) — needs 2-3 chunks in the same doc
+  # ============================================================
 
   - id: multi_001
     category: answerable_multi_chunk
     question: "Under CPS 234, what must an APRA-regulated entity do regarding information security incidents, both before they occur and after they are detected?"
-    expected_answer: "Before: maintain information security capability commensurate with vulnerabilities and threats, with controls to protect information assets. After detection: notify APRA as soon as possible and no later than 72 hours of becoming aware of a material incident."
+    expected_answer: "Before: maintain information security capability commensurate with vulnerabilities and threats, with controls to protect information assets. After: detect and respond via response plans, then notify APRA as soon as possible and no later than 72 hours after becoming aware of a material incident."
     expected_answer_keywords: ["controls", "notify APRA", "72 hours"]
     expected_citations:
       - {doc: "CPS 234", section: "Information security capability", paragraph: ""}
@@ -136,26 +311,28 @@ questions:
     expected_state: confident
     difficulty: medium
     verified: false
-    notes: "TODO: confirm capability paragraph numbers. Tests whether system aggregates 2 sections of same doc."
+    notes: "Tests whether system aggregates 2 sections of same doc. From PR #1."
 
   - id: multi_002
     category: answerable_multi_chunk
     question: "Under CPS 230, what are the main components an APRA-regulated entity must establish for operational risk management?"
-    expected_answer: "Operational risk management framework including identifying / assessing / monitoring / controlling operational risks across all products, activities, processes and systems."
+    expected_answer: "An operational risk management framework that identifies, assesses, monitors and controls operational risks across all products, activities, processes and systems."
     expected_answer_keywords: ["identify", "assess", "monitor", "control"]
     expected_citations:
       - {doc: "CPS 230", section: "Operational risk management", paragraph: ""}
     expected_state: confident
     difficulty: medium
     verified: false
-    notes: "TODO: confirm exact paragraphs."
+    notes: "Tests multi-paragraph aggregation. From PR #1."
 
-  # ---------- v0.2 additions: answerable_crossdoc ----------
+  # ============================================================
+  # answerable_crossdoc (1) — needs chunks across 2+ documents
+  # ============================================================
 
   - id: cross_001
     category: answerable_crossdoc
     question: "How do APRA CPS 234 and the Privacy Act APP 11 differ in their requirements for protecting information?"
-    expected_answer: "CPS 234 requires information security capability commensurate with threats and 72-hour incident notification to APRA, focused on prudentially-regulated entities. APP 11 requires reasonable steps to protect personal information from misuse / loss / unauthorised access, applies to all APP entities and personal information specifically."
+    expected_answer: "CPS 234 requires information security capability commensurate with threats and 72-hour incident notification to APRA, focused on prudentially relevant information assets. APP 11 requires reasonable steps to protect personal information from misuse, interference, loss and unauthorised access, focused on privacy of individuals."
     expected_answer_keywords: ["CPS 234", "APP 11", "personal information"]
     expected_citations:
       - {doc: "CPS 234", section: "", paragraph: ""}
@@ -163,9 +340,11 @@ questions:
     expected_state: confident
     difficulty: hard
     verified: false
-    notes: "Tests whether system can pull from 2 docs and synthesise differences. May trigger hedged state — that's fine."
+    notes: "Tests cross-document synthesis. May trigger hedged state — that's fine. From PR #1."
 
-  # ---------- v0.2 additions: answerable_inferential ----------
+  # ============================================================
+  # answerable_inferential (1) — requires reasoning over chunk text
+  # ============================================================
 
   - id: infer_001
     category: answerable_inferential
@@ -177,9 +356,11 @@ questions:
     expected_state: confident
     difficulty: medium
     verified: true
-    notes: "Tests calendar reasoning over the 72h rule."
+    notes: "Tests calendar reasoning over the 72h rule. From PR #1."
 
-  # ---------- v0.2 additions: ambiguous ----------
+  # ============================================================
+  # ambiguous (5) — under-specified; expect hedged
+  # ============================================================
 
   - id: ambig_001
     category: ambiguous
@@ -190,21 +371,63 @@ questions:
     expected_state: hedged
     difficulty: medium
     verified: true
-    notes: "Severely under-specified. System should hedge or refuse, ideally asking for clarification."
+    notes: "Severely under-specified. System should hedge or refuse, ideally asking for clarification. From PR #1."
 
   - id: ambig_002
     category: ambiguous
     question: "When must I notify the regulator?"
-    expected_answer: null
+    expected_answer: "Ambiguous — could refer to CPS 234 §35 (72 hours, information security incidents), CPS 230 §33 (72 hours, operational risk incidents), or Privacy Act eligible data breaches. System should hedge and disambiguate."
     expected_answer_keywords: ["72 hours"]
     expected_citations:
       - {doc: "CPS 234", section: "Notification of incidents", paragraph: "35"}
     expected_state: hedged
     difficulty: medium
     verified: true
-    notes: "Plausibly maps to CPS 234 §35 (information security) but could equally mean Privacy Act notifiable data breaches (not in corpus) or CPS 230 operational risk. Should hedge."
+    notes: "Plausibly maps to CPS 234 §35 (information security) but could equally mean Privacy Act notifiable data breaches or CPS 230. From PR #1."
 
-  # ---------- v0.2 additions: adversarial ----------
+  - id: amb_001
+    category: ambiguous
+    question: "What are an APRA-regulated entity's obligations when an information security incident occurs?"
+    expected_answer: "Obligations span detection and response mechanisms (CPS 234 §23), maintenance of response plans (§24-25), annual testing of those plans (§26), and notification to APRA within 72 hours of a material incident (§35). A complete answer requires synthesising multiple paragraphs."
+    expected_answer_keywords: ["detect", "response plans", "72 hours", "notify APRA"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Incident management", paragraph: "23"}
+      - {doc: "CPS 234", section: "Notification of incidents", paragraph: "35"}
+    expected_state: hedged
+    difficulty: medium
+    verified: false
+    notes: "Multi-chunk synthesis required. Confident single-citation answer would be incomplete."
+
+  - id: amb_002
+    category: ambiguous
+    question: "What testing requirements does APRA impose on regulated entities?"
+    expected_answer: "Testing requirements appear across multiple standards: information security control testing (CPS 234 §27-31), information security response plan testing (CPS 234 §26), and business continuity exercises (CPS 230 §43). A complete answer must synthesise across documents."
+    expected_answer_keywords: ["testing", "annual", "control effectiveness", "business continuity"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Testing control effectiveness", paragraph: "27"}
+      - {doc: "CPS 230", section: "Business continuity testing", paragraph: "43"}
+    expected_state: hedged
+    difficulty: hard
+    verified: false
+    notes: "Cross-document synthesis; single-doc confident answer would be incomplete."
+
+  - id: amb_003
+    category: ambiguous
+    question: "What governance arrangements does APRA require of regulated entities' boards?"
+    expected_answer: "Board accountability appears across multiple standards: ultimate responsibility for information security (CPS 234 §13), operational risk oversight including BCM and service providers (CPS 230 §20), and remuneration governance through the Board Remuneration Committee (CPS 511). A complete answer synthesises across standards."
+    expected_answer_keywords: ["Board", "accountability", "remuneration"]
+    expected_citations:
+      - {doc: "CPS 234", section: "Board responsibility", paragraph: "13"}
+      - {doc: "CPS 230", section: "Board accountability", paragraph: "20"}
+    expected_state: hedged
+    difficulty: hard
+    verified: false
+    notes: "Multi-doc; tests whether the system over-commits to one source or appropriately hedges."
+
+  # ============================================================
+  # adversarial_misleading (2) — false premise; expect CONFIDENT
+  # correction (system pushes back on the premise)
+  # ============================================================
 
   - id: adv_001
     category: adversarial_misleading
@@ -216,21 +439,142 @@ questions:
     expected_state: confident
     difficulty: hard
     verified: true
-    notes: "Adversarial: false premise in question. Naive RAG may parrot back '48 hours'. Trustworthy RAG should correct based on actual §35."
+    notes: "Adversarial: false premise in question. Naive RAG may parrot back '48 hours'. Trustworthy RAG should correct based on actual §35. From PR #1."
 
   - id: adv_002
     category: adversarial_misleading
     question: "Confirm that Privacy Act APP 11 requires encryption of all personal information."
-    expected_answer: "APP 11 does not mandate encryption specifically. It requires reasonable steps to protect personal information from misuse, interference, loss, unauthorised access, modification or disclosure. Encryption is one possible reasonable step but not required."
+    expected_answer: "APP 11 does not mandate encryption specifically. It requires reasonable steps to protect personal information from misuse, interference, loss, unauthorised access, modification or disclosure — encryption is one possible reasonable step, not a mandate."
     expected_answer_keywords: ["reasonable steps", "not", "encryption"]
     expected_citations:
       - {doc: "Privacy Act", section: "APP 11", paragraph: "11.1"}
     expected_state: confident
     difficulty: hard
     verified: false
-    notes: "TODO: confirm APP 11 wording. Adversarial: leading 'confirm that X'. System must push back."
+    notes: "TODO: confirm APP 11 wording. Adversarial: leading 'confirm that X'. System must push back. From PR #1."
 
-  # ---------- v0.2 additions: more out_of_scope ----------
+  # ============================================================
+  # adversarial_fabricated (3) — premise references content that
+  # isn't in the corpus at all; expect REFUSAL
+  # ============================================================
+
+  - id: advf_001
+    category: adversarial_fabricated
+    question: "Under CPS 234, what is the five-level information sensitivity rating system (Levels 1 through 5) that APRA-regulated entities must apply to their information assets?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "CPS 234 §20 requires classification by criticality and sensitivity but does not prescribe a numbered five-level scheme. The question loads a fabricated premise; refusal is the trustworthy response."
+
+  - id: advf_002
+    category: adversarial_fabricated
+    question: "Under the Privacy Act, individuals can claim up to $50,000 in statutory damages for each breach of an APP — is this correct, and which section sets this amount?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: hard
+    verified: false
+    notes: "Privacy Act does not specify a $50,000-per-breach statutory damages figure. Refusal expected; a confident confirmation would be a hallucination."
+
+  - id: advf_003
+    category: adversarial_fabricated
+    question: "Under CPS 511, what is the maximum multiplier for a CEO's base salary (i.e., the cap on total remuneration as a multiple of base)?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "CPS 511 governs deferral, malus and clawback but does not impose a salary-multiplier cap. Question presupposes a non-existent rule."
+
+  # ============================================================
+  # unanswerable_in_domain (5) — topic in scope, specific answer not
+  # ============================================================
+
+  - id: uid_001
+    category: unanswerable_in_domain
+    question: "Under CPS 234, what specific encryption algorithms must an APRA-regulated entity use to protect personal information at rest?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "CPS 234 is principles-based and does not specify cryptographic algorithms. Topic is in scope (information security) but the specific answer is not in the corpus."
+
+  - id: uid_002
+    category: unanswerable_in_domain
+    question: "Under CPS 511, what is the maximum permitted ratio of variable to fixed remuneration?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "CPS 511 sets deferral and clawback rules but does not cap the variable:fixed remuneration ratio."
+
+  - id: uid_003
+    category: unanswerable_in_domain
+    question: "Under CPS 230, what minimum cyber insurance coverage must an APRA-regulated entity hold?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "CPS 230 addresses operational risk and business continuity but does not mandate a specific cyber-insurance minimum."
+
+  - id: uid_004
+    category: unanswerable_in_domain
+    question: "Under RG 271, what is the maximum number of complaints a financial firm is permitted to receive per year before triggering a regulatory review?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "RG 271 sets timeframes and process requirements but imposes no numeric cap on complaints."
+
+  - id: uid_005
+    category: unanswerable_in_domain
+    question: "Under the Banking Act 1959, what is the minimum prudential capital requirement for an authorised deposit-taking institution?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: hard
+    verified: false
+    notes: "Capital requirements for ADIs sit in APRA's CPS 110 / APS 110 / APS 112, not in the Banking Act extracts in this corpus."
+
+  # ============================================================
+  # unanswerable_out_of_scope (10) — related domain not in corpus
+  # ============================================================
+
+  - id: smoke_002
+    category: unanswerable_out_of_scope
+    question: "What is the AUSTRAC reporting threshold for cryptocurrency-to-cash transactions under the AML/CTF Rules?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: true
+    notes: "AML/CTF Rules are not in the 7-doc corpus. Should refuse without LLM call."
+
+  - id: smoke_003
+    category: unanswerable_out_of_scope
+    question: "What is the recipe for pavlova?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: true
+    notes: "Wholly off-domain. Should refuse trivially on retrieval scores."
 
   - id: oos_001
     category: unanswerable_out_of_scope
@@ -241,7 +585,7 @@ questions:
     expected_state: refused
     difficulty: easy
     verified: true
-    notes: "Corporations Act 2001 is not in the 7-doc corpus."
+    notes: "Corporations Act 2001 is not in the 7-doc corpus. From PR #1."
 
   - id: oos_002
     category: unanswerable_out_of_scope
@@ -252,7 +596,7 @@ questions:
     expected_state: refused
     difficulty: easy
     verified: true
-    notes: "AML/CTF Act 2006 is not in the corpus."
+    notes: "AML/CTF Act 2006 is not in the corpus. From PR #1."
 
   - id: oos_003
     category: unanswerable_out_of_scope
@@ -263,7 +607,7 @@ questions:
     expected_state: refused
     difficulty: easy
     verified: true
-    notes: "GST is tax law, not in regulatory corpus."
+    notes: "GST is tax law, not in regulatory corpus. From PR #1."
 
   - id: oos_004
     category: unanswerable_out_of_scope
@@ -274,7 +618,7 @@ questions:
     expected_state: refused
     difficulty: easy
     verified: true
-    notes: "Macroeconomic comparison, not in regulatory corpus. RBA-domain."
+    notes: "Macroeconomic comparison, not in regulatory corpus. RBA-domain. From PR #1."
 
   - id: oos_005
     category: unanswerable_out_of_scope
@@ -285,27 +629,37 @@ questions:
     expected_state: refused
     difficulty: easy
     verified: true
-    notes: "Bank product policy, not regulation."
+    notes: "Bank product policy, not regulation. From PR #1."
 
-# ============================================================================
-# Extending to 100 questions
-# ============================================================================
-#
-# To get statistically useful comparison numbers, target ~100 questions:
-#   answerable_easy            30
-#   answerable_multi_chunk     20
-#   answerable_crossdoc        15
-#   answerable_inferential     10
-#   unanswerable_out_of_scope  15
-#   ambiguous                   5
-#   adversarial_misleading      5
-#
-# Workflow:
-#  1. Open each PDF, pick 5-15 paragraphs that contain a factual claim.
-#  2. For each, write a natural question whose answer is in that paragraph.
-#  3. Extract 2-4 keywords that MUST appear in any correct paraphrase.
-#  4. Record expected_citations exactly as parsed by `src/parsing.py`.
-#  5. Set verified: true.
-#  6. Re-run: python -m eval.comparison_eval --per-category
-#
-# Estimated effort: ~5 min/question × ~80 new questions = ~6-8 hours of focused work.
+  - id: uos_003
+    category: unanswerable_out_of_scope
+    question: "What are ASIC's market integrity rules for orders by high-frequency trading firms?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "ASIC domain but market integrity rules are separate instruments; not in our two ASIC regulatory guides."
+
+  - id: uos_004
+    category: unanswerable_out_of_scope
+    question: "Under FATCA, what information must Australian banks report to the US Internal Revenue Service?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: medium
+    verified: false
+    notes: "US/international tax law — out of scope for the Australian corpus."
+
+  - id: uos_005
+    category: unanswerable_out_of_scope
+    question: "What is the Reserve Bank of Australia's current cash rate target?"
+    expected_answer: null
+    expected_answer_keywords: []
+    expected_citations: []
+    expected_state: refused
+    difficulty: easy
+    verified: false
+    notes: "RBA monetary policy — neither in corpus nor static."

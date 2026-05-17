@@ -21,6 +21,7 @@ import json
 import sys
 import time
 from dataclasses import dataclass
+from typing import Literal
 
 from rich.console import Console
 from rich.pretty import pprint
@@ -30,8 +31,8 @@ from src.config import settings
 from src.confidence import score_and_route
 from src.faithfulness import check as faithfulness_check
 from src.generation import generate_answer
-from src.retrieval.bm25 import BM25Index
-from src.retrieval.dense import DenseIndex
+from src.retrieval.bm25 import BM25Hit, BM25Index
+from src.retrieval.dense import DenseHit, DenseIndex
 from src.retrieval.hybrid import HybridHit, HybridRetriever
 from src.schemas import (
     Chunk,
@@ -41,6 +42,8 @@ from src.schemas import (
     FaithfulnessReport,
     RAGOutput,
 )
+
+RetrievalMode = Literal["hybrid", "bm25_only", "dense_only"]
 
 console = Console()
 
@@ -113,14 +116,65 @@ def _hits_to_chunks(hits: list[HybridHit], lookup: dict[str, dict]) -> list[Chun
     return out
 
 
+def _bm25_only_to_hybrid_hits(bm25_hits: list[BM25Hit], top_k: int) -> list[HybridHit]:
+    """Adapter for the bm25_only ablation: build HybridHits from BM25 ranks alone."""
+    return [
+        HybridHit(
+            chunk_id=h.chunk_id,
+            bm25_score=h.score,
+            bm25_rank=h.rank,
+            dense_score=0.0,
+            dense_rank=None,
+            rrf_score=h.score,  # rrf_score unused; surface raw bm25 score for debugging
+            rank=h.rank,
+        )
+        for h in bm25_hits[:top_k]
+    ]
+
+
+def _dense_only_to_hybrid_hits(dense_hits: list[DenseHit], top_k: int) -> list[HybridHit]:
+    """Adapter for the dense_only ablation: build HybridHits from dense ranks alone."""
+    return [
+        HybridHit(
+            chunk_id=h.chunk_id,
+            bm25_score=0.0,
+            bm25_rank=None,
+            dense_score=h.score,
+            dense_rank=h.rank,
+            rrf_score=h.score,  # rrf_score unused; surface raw dense score for debugging
+            rank=h.rank,
+        )
+        for h in dense_hits[:top_k]
+    ]
+
+
 def run(
     question: str,
     llm_id: str | None = None,
     embedder_id: str | None = None,
     nli_id: str | None = None,
     top_k: int | None = None,
+    retrieval_mode: RetrievalMode = "hybrid",
+    enable_faithfulness: bool = True,
+    enable_floor_gate: bool = True,
+    enable_routing: bool = True,
 ) -> RAGOutput:
-    """Full end-to-end pipeline. Returns the structured RAGOutput."""
+    """Full end-to-end pipeline. Returns the structured RAGOutput.
+
+    Ablation parameters (all default-preserving):
+     - retrieval_mode: "hybrid" (default), "bm25_only", or "dense_only". Picks
+       which retriever's ranking becomes the user-facing retrieved set. Both
+       retrievers are always called so confidence signals stay computed.
+     - enable_faithfulness: when False, skip the post-gen NLI check entirely.
+       The faith report stays empty and no confident→hedged downgrade happens.
+     - enable_floor_gate: when False, disable the top-1 dense floor that
+       short-circuits to refused. Implemented by passing override_floor=0.0
+       to score_and_route.
+     - enable_routing: when False, ignore the confidence router's decision
+       and always proceed to generation as if "confident". Confidence signals
+       are still computed (for transparency in the output) but don't gate
+       the answer. Used by always-answer baselines (no_rag, hybrid).
+    """
     t0 = time.time()
     llm_id = llm_id or settings.default_llm
     embedder_id = embedder_id or settings.default_embedder
@@ -130,13 +184,28 @@ def run(
     chunk_lookup = _ensure_chunk_lookup()
     retriever = load_indexes(embedder_id)
 
-    # -------- Hybrid retrieval --------
-    hybrid_hits = retriever.search(question, top_k=top_k)
-    bm25_hits = retriever.bm25_index.search(question, top_k=max(20, top_k * 2))
-    dense_hits = retriever.dense_index.search(question, top_k=max(20, top_k * 2))
+    # -------- Retrieval --------
+    # Always call both retrievers so confidence signals (top1_dense, rank_overlap)
+    # are computed identically across ablation modes — the ablation only
+    # changes which ranking surfaces to the LLM.
+    candidate_k = max(20, top_k * 2)
+    bm25_hits = retriever.bm25_index.search(question, top_k=candidate_k)
+    dense_hits = retriever.dense_index.search(question, top_k=candidate_k)
+
+    if retrieval_mode == "hybrid":
+        hybrid_hits = retriever.search(question, top_k=top_k)
+    elif retrieval_mode == "bm25_only":
+        hybrid_hits = _bm25_only_to_hybrid_hits(bm25_hits, top_k)
+    elif retrieval_mode == "dense_only":
+        hybrid_hits = _dense_only_to_hybrid_hits(dense_hits, top_k)
+    else:
+        raise ValueError(f"Unknown retrieval_mode: {retrieval_mode!r}")
+
     retrieved = _hits_to_chunks(hybrid_hits, chunk_lookup)
 
     # -------- Confidence + routing --------
+    # Signals are always computed (kept in the output for transparency).
+    # `enable_routing=False` ignores the decision and forces "confident".
     top_text = retrieved[0].text if retrieved else None
     decision = score_and_route(
         question=question,
@@ -145,12 +214,14 @@ def run(
         hybrid_hits=hybrid_hits,
         top_chunk_text=top_text,
         nli_id=nli_id,
+        override_floor=None if enable_floor_gate else 0.0,
     )
+    effective_state = decision.state if enable_routing else "confident"
 
     elapsed_pre_gen_ms = int((time.time() - t0) * 1000)
 
     # -------- Refused path: no LLM call --------
-    if decision.state == "refused":
+    if effective_state == "refused":
         return RAGOutput(
             state="refused",
             answer=None,
@@ -166,7 +237,7 @@ def run(
         )
 
     # -------- Generate (confident or hedged) --------
-    hedged_flag = decision.state == "hedged"
+    hedged_flag = effective_state == "hedged"
     draft = generate_answer(
         question=question,
         chunks=retrieved,
@@ -174,20 +245,28 @@ def run(
         hedged=hedged_flag,
     )
 
-    # -------- Faithfulness check --------
-    faith = faithfulness_check(
-        answer=draft.text,
-        citations=draft.citations,
-        retrieved_chunks=retrieved,
-        nli_id=nli_id,
-    )
+    # -------- Faithfulness check (optional) --------
+    if enable_faithfulness:
+        faith = faithfulness_check(
+            answer=draft.text,
+            citations=draft.citations,
+            retrieved_chunks=retrieved,
+            nli_id=nli_id,
+        )
+    else:
+        faith = FaithfulnessReport()
 
-    # If any claim fails entailment and policy says so, drop to hedged
-    final_state = decision.state
+    # If any claim fails entailment and policy says so, drop to hedged.
+    # Skipped when faithfulness checking is disabled or routing is disabled
+    # (no point downgrading when the caller has explicitly opted out of
+    # confidence-based gating).
+    final_state = effective_state
     if (
-        settings.faithfulness.reroute_to_hedged_on_failure
+        enable_routing
+        and enable_faithfulness
+        and settings.faithfulness.reroute_to_hedged_on_failure
         and faith.unfaithful_count > 0
-        and decision.state == "confident"
+        and effective_state == "confident"
     ):
         final_state = "hedged"
 
@@ -210,6 +289,27 @@ def main() -> int:
     parser.add_argument("--embedder", default=None, help="Embedder id (default: settings.default_embedder)")
     parser.add_argument("--nli", default=None, help="NLI id (default: settings.default_nli)")
     parser.add_argument("--top-k", type=int, default=None, help="Top-k retrieval (default: 10)")
+    parser.add_argument(
+        "--retrieval-mode",
+        choices=["hybrid", "bm25_only", "dense_only"],
+        default="hybrid",
+        help="Retrieval ablation mode (default: hybrid)",
+    )
+    parser.add_argument(
+        "--no-faithfulness",
+        action="store_true",
+        help="Disable the post-generation NLI faithfulness check",
+    )
+    parser.add_argument(
+        "--no-floor-gate",
+        action="store_true",
+        help="Disable the top-1 dense floor that short-circuits to refused",
+    )
+    parser.add_argument(
+        "--no-routing",
+        action="store_true",
+        help="Always answer, ignoring the confidence router (always-answer baselines)",
+    )
     parser.add_argument("--json", action="store_true", help="Print full JSON output")
     args = parser.parse_args()
 
@@ -219,6 +319,10 @@ def main() -> int:
         embedder_id=args.embedder,
         nli_id=args.nli,
         top_k=args.top_k,
+        retrieval_mode=args.retrieval_mode,
+        enable_faithfulness=not args.no_faithfulness,
+        enable_floor_gate=not args.no_floor_gate,
+        enable_routing=not args.no_routing,
     )
 
     if args.json:

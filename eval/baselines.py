@@ -1,21 +1,27 @@
-"""Five RAG baselines for head-to-head comparison.
+"""Baseline implementations used by the comparison-eval framework.
 
-All baselines share retrieval / generation primitives from src/. They differ
-only in which trust mechanisms are enabled:
+Each baseline is a subclass of `Baseline` with a `run()` method that takes
+a question and returns a uniform `BaselineOutput`. The runner in
+`eval/comparison_eval.py` iterates baselines × questions and feeds the
+outputs to the judge + metrics.
 
-    Baseline              | Retrieval        | Refuse on low conf | NLI faith check
-    ----------------------|------------------|--------------------|------------------
-    no_rag                | none             | no                 | no
-    dense_only            | dense (FAISS)    | no                 | no
-    hybrid                | BM25 + dense+RRF | no                 | no
-    hybrid_refuse         | BM25 + dense+RRF | yes                | no
-    trustworthy (current) | BM25 + dense+RRF | yes                | yes
+Architecture note: four of the five baselines delegate to the canonical
+`src.pipeline.run()` with different ablation flags. This collapses what was
+previously several parallel retrieve-and-generate code paths into one source
+of truth and lets you toggle features at the call site:
 
-This makes the contribution clear: each row in the comparison table
-isolates the effect of one component.
+    Baseline                Pipeline call
+    ─────────────────────   ─────────────────────────────────────────────
+    DenseOnlyRAGBaseline    run(retrieval_mode="dense_only",
+                                enable_routing=False,
+                                enable_faithfulness=False)
+    HybridRAGBaseline       run(enable_routing=False,
+                                enable_faithfulness=False)
+    HybridRAGWithRefuseB.   run(enable_faithfulness=False)
+    TrustworthyRAGBaseline  run()                          # defaults
 
-All baselines return `BaselineOutput` (defined in comparison_metrics.py)
-so downstream metrics treat them identically.
+`NoRAGBaseline` stays special-cased — it has no retrieval at all and
+therefore can't go through the standard pipeline.
 """
 
 from __future__ import annotations
@@ -25,26 +31,16 @@ from abc import ABC, abstractmethod
 from typing import Literal
 
 from eval.comparison_metrics import BaselineOutput
-from src.config import settings
-from src.confidence import score_and_route
-from src.faithfulness import check as faithfulness_check
 from src.generation import generate_answer
-from src.models.manager import manager
-from src.pipeline import (
-    _ensure_bm25,
-    _ensure_chunk_lookup,
-    _hits_to_chunks,
-    load_indexes,
-)
-from src.retrieval.dense import DenseIndex
-from src.retrieval.hybrid import HybridRetriever
-from src.schemas import Chunk
+from src.pipeline import run as pipeline_run
+from src.schemas import Chunk, Citation, RAGOutput
 
 BaselineName = Literal["no_rag", "dense_only", "hybrid", "hybrid_refuse", "trustworthy"]
 
 
 # ---------------------------------------------------------------------------
-# Helper: convert internal Chunk dataclass list to plain dict list for output
+# Adapters: convert internal pipeline types to the plain-dict output shape
+# expected by BaselineOutput / the judge.
 # ---------------------------------------------------------------------------
 
 
@@ -65,11 +61,28 @@ def _chunks_to_dicts(chunks: list[Chunk]) -> list[dict]:
     ]
 
 
-def _citations_to_dicts(citations) -> list[dict]:
+def _citations_to_dicts(citations: list[Citation]) -> list[dict]:
     return [
         {"doc": c.doc, "section": c.section, "paragraph": c.paragraph, "span": c.span}
         for c in citations
     ]
+
+
+def _rag_output_to_baseline_output(
+    question_id: str, out: RAGOutput
+) -> BaselineOutput:
+    """Adapt the canonical pipeline output to the comparison-eval shape."""
+    return BaselineOutput(
+        question_id=question_id,
+        state=out.state,
+        answer=out.answer,
+        citations=_citations_to_dicts(out.citations),
+        retrieved_chunks=_chunks_to_dicts(out.evidence.retrieved_chunks),
+        llm_called=out.llm_called,
+        elapsed_ms=out.elapsed_ms,
+        unfaithful_claim_count=out.faithfulness.unfaithful_count,
+        total_claim_count=len(out.faithfulness.claims),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +105,8 @@ class Baseline(ABC):
 
 
 # ---------------------------------------------------------------------------
-# 1. NoRAG: pure LLM, no retrieval
+# 1. NoRAG: pure LLM, no retrieval (special-cased — can't use pipeline.run
+# because the pipeline always retrieves).
 # ---------------------------------------------------------------------------
 
 
@@ -107,8 +121,9 @@ class NoRAGBaseline(Baseline):
 
     def run(self, question_id: str, question: str) -> BaselineOutput:
         t0 = time.time()
-        # Reuse the answer template with empty chunks list.
-        draft = generate_answer(question=question, chunks=[], llm_id=self.llm_id, hedged=False)
+        draft = generate_answer(
+            question=question, chunks=[], llm_id=self.llm_id, hedged=False
+        )
         return BaselineOutput(
             question_id=question_id,
             state="confident",  # no_rag always answers
@@ -121,158 +136,82 @@ class NoRAGBaseline(Baseline):
 
 
 # ---------------------------------------------------------------------------
-# 2. DenseOnlyRAG: dense retrieval, always answer
+# 2. DenseOnlyRAG: dense retrieval only, no routing, no faith check.
+# Isolates the value of hybrid retrieval (compare to HybridRAG).
 # ---------------------------------------------------------------------------
 
 
 class DenseOnlyRAGBaseline(Baseline):
-    """FAISS-only retrieval, no BM25, no routing, no faith check.
-
-    Isolates the value of hybrid retrieval: comparing this to HybridRAG
-    shows how much BM25+RRF helps for legal text (exact statute numbers,
-    defined terms).
-    """
+    """FAISS-only retrieval, always answer. Delegates to pipeline.run."""
 
     name: BaselineName = "dense_only"
 
     def run(self, question_id: str, question: str) -> BaselineOutput:
-        t0 = time.time()
-        dense = DenseIndex.load(self.embedder_id)
-        chunk_lookup = _ensure_chunk_lookup()
-
-        dense_hits = dense.search(question, top_k=self.top_k)
-        retrieved = []
-        for h in dense_hits:
-            meta = chunk_lookup.get(h.chunk_id)
-            if not meta:
-                continue
-            retrieved.append(
-                Chunk(
-                    chunk_id=h.chunk_id,
-                    doc=meta["doc"],
-                    section=meta["section"],
-                    paragraph=meta["paragraph"],
-                    text=meta["text"],
-                    bm25_score=0.0,
-                    dense_score=h.score,
-                    rrf_score=0.0,
-                    rank=h.rank,
-                )
-            )
-
-        draft = generate_answer(
-            question=question, chunks=retrieved, llm_id=self.llm_id, hedged=False
+        out = pipeline_run(
+            question=question,
+            llm_id=self.llm_id,
+            embedder_id=self.embedder_id,
+            nli_id=self.nli_id,
+            top_k=self.top_k,
+            retrieval_mode="dense_only",
+            enable_routing=False,
+            enable_faithfulness=False,
         )
-        return BaselineOutput(
-            question_id=question_id,
-            state="confident",
-            answer=draft.text,
-            citations=_citations_to_dicts(draft.citations),
-            retrieved_chunks=_chunks_to_dicts(retrieved),
-            llm_called=True,
-            elapsed_ms=int((time.time() - t0) * 1000),
-        )
+        return _rag_output_to_baseline_output(question_id, out)
 
 
 # ---------------------------------------------------------------------------
-# 3. HybridRAG: BM25 + dense + RRF, always answer
+# 3. HybridRAG: BM25 + dense + RRF, no routing, no faith check.
+# Isolates the value of confidence routing (compare to HybridRAGWithRefuse).
 # ---------------------------------------------------------------------------
 
 
 class HybridRAGBaseline(Baseline):
-    """Full hybrid retrieval but no routing, no faith check.
-
-    Isolates the value of confidence routing: comparing this to
-    HybridRAGWithRefuse shows the impact of "knowing when to shut up."
-    """
+    """Full hybrid retrieval, always answer. Delegates to pipeline.run."""
 
     name: BaselineName = "hybrid"
 
     def run(self, question_id: str, question: str) -> BaselineOutput:
-        t0 = time.time()
-        retriever: HybridRetriever = load_indexes(self.embedder_id)
-        chunk_lookup = _ensure_chunk_lookup()
-
-        hybrid_hits = retriever.search(question, top_k=self.top_k)
-        retrieved = _hits_to_chunks(hybrid_hits, chunk_lookup)
-
-        draft = generate_answer(
-            question=question, chunks=retrieved, llm_id=self.llm_id, hedged=False
+        out = pipeline_run(
+            question=question,
+            llm_id=self.llm_id,
+            embedder_id=self.embedder_id,
+            nli_id=self.nli_id,
+            top_k=self.top_k,
+            retrieval_mode="hybrid",
+            enable_routing=False,
+            enable_faithfulness=False,
         )
-        return BaselineOutput(
-            question_id=question_id,
-            state="confident",
-            answer=draft.text,
-            citations=_citations_to_dicts(draft.citations),
-            retrieved_chunks=_chunks_to_dicts(retrieved),
-            llm_called=True,
-            elapsed_ms=int((time.time() - t0) * 1000),
-        )
+        return _rag_output_to_baseline_output(question_id, out)
 
 
 # ---------------------------------------------------------------------------
-# 4. HybridRAG + Refuse: routing enabled, no faith check
+# 4. HybridRAG + Refuse: routing enabled, no faith check.
+# Isolates the value of NLI faithfulness (compare to TrustworthyRAG).
 # ---------------------------------------------------------------------------
 
 
 class HybridRAGWithRefuseBaseline(Baseline):
-    """Hybrid retrieval + confidence routing, but no NLI faithfulness check.
-
-    Isolates the value of NLI faithfulness: comparing this to TrustworthyRAG
-    shows the impact of the post-generation hallucination guard.
-    """
+    """Hybrid retrieval + confidence routing, no faith check. Delegates to pipeline.run."""
 
     name: BaselineName = "hybrid_refuse"
 
     def run(self, question_id: str, question: str) -> BaselineOutput:
-        t0 = time.time()
-        retriever: HybridRetriever = load_indexes(self.embedder_id)
-        chunk_lookup = _ensure_chunk_lookup()
-
-        hybrid_hits = retriever.search(question, top_k=self.top_k)
-        bm25_hits = retriever.bm25_index.search(question, top_k=max(20, self.top_k * 2))
-        dense_hits = retriever.dense_index.search(question, top_k=max(20, self.top_k * 2))
-        retrieved = _hits_to_chunks(hybrid_hits, chunk_lookup)
-
-        top_text = retrieved[0].text if retrieved else None
-        decision = score_and_route(
+        out = pipeline_run(
             question=question,
-            bm25_hits=bm25_hits,
-            dense_hits=dense_hits,
-            hybrid_hits=hybrid_hits,
-            top_chunk_text=top_text,
+            llm_id=self.llm_id,
+            embedder_id=self.embedder_id,
             nli_id=self.nli_id,
+            top_k=self.top_k,
+            retrieval_mode="hybrid",
+            enable_routing=True,
+            enable_faithfulness=False,
         )
-
-        if decision.state == "refused":
-            return BaselineOutput(
-                question_id=question_id,
-                state="refused",
-                answer=None,
-                citations=[],
-                retrieved_chunks=_chunks_to_dicts(retrieved),
-                llm_called=False,
-                elapsed_ms=int((time.time() - t0) * 1000),
-            )
-
-        hedged = decision.state == "hedged"
-        draft = generate_answer(
-            question=question, chunks=retrieved, llm_id=self.llm_id, hedged=hedged
-        )
-
-        return BaselineOutput(
-            question_id=question_id,
-            state=decision.state,  # confident | hedged
-            answer=draft.text,
-            citations=_citations_to_dicts(draft.citations),
-            retrieved_chunks=_chunks_to_dicts(retrieved),
-            llm_called=True,
-            elapsed_ms=int((time.time() - t0) * 1000),
-        )
+        return _rag_output_to_baseline_output(question_id, out)
 
 
 # ---------------------------------------------------------------------------
-# 5. TrustworthyRAG: the full repo pipeline
+# 5. TrustworthyRAG: the full repo pipeline.
 # ---------------------------------------------------------------------------
 
 
@@ -282,69 +221,14 @@ class TrustworthyRAGBaseline(Baseline):
     name: BaselineName = "trustworthy"
 
     def run(self, question_id: str, question: str) -> BaselineOutput:
-        t0 = time.time()
-        retriever: HybridRetriever = load_indexes(self.embedder_id)
-        chunk_lookup = _ensure_chunk_lookup()
-
-        hybrid_hits = retriever.search(question, top_k=self.top_k)
-        bm25_hits = retriever.bm25_index.search(question, top_k=max(20, self.top_k * 2))
-        dense_hits = retriever.dense_index.search(question, top_k=max(20, self.top_k * 2))
-        retrieved = _hits_to_chunks(hybrid_hits, chunk_lookup)
-
-        top_text = retrieved[0].text if retrieved else None
-        decision = score_and_route(
+        out = pipeline_run(
             question=question,
-            bm25_hits=bm25_hits,
-            dense_hits=dense_hits,
-            hybrid_hits=hybrid_hits,
-            top_chunk_text=top_text,
+            llm_id=self.llm_id,
+            embedder_id=self.embedder_id,
             nli_id=self.nli_id,
+            top_k=self.top_k,
         )
-
-        if decision.state == "refused":
-            return BaselineOutput(
-                question_id=question_id,
-                state="refused",
-                answer=None,
-                citations=[],
-                retrieved_chunks=_chunks_to_dicts(retrieved),
-                llm_called=False,
-                elapsed_ms=int((time.time() - t0) * 1000),
-            )
-
-        hedged_flag = decision.state == "hedged"
-        draft = generate_answer(
-            question=question, chunks=retrieved, llm_id=self.llm_id, hedged=hedged_flag
-        )
-
-        # Faithfulness check
-        faith = faithfulness_check(
-            answer=draft.text,
-            citations=draft.citations,
-            retrieved_chunks=retrieved,
-            nli_id=self.nli_id,
-        )
-
-        # Reroute confident → hedged if any claim failed entailment
-        final_state = decision.state
-        if (
-            settings.faithfulness.reroute_to_hedged_on_failure
-            and faith.unfaithful_count > 0
-            and decision.state == "confident"
-        ):
-            final_state = "hedged"
-
-        return BaselineOutput(
-            question_id=question_id,
-            state=final_state,  # type: ignore[arg-type]
-            answer=draft.text,
-            citations=_citations_to_dicts(draft.citations),
-            retrieved_chunks=_chunks_to_dicts(retrieved),
-            llm_called=True,
-            elapsed_ms=int((time.time() - t0) * 1000),
-            unfaithful_claim_count=faith.unfaithful_count,
-            total_claim_count=len(faith.claims),
-        )
+        return _rag_output_to_baseline_output(question_id, out)
 
 
 # ---------------------------------------------------------------------------

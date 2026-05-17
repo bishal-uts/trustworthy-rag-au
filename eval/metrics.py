@@ -1,33 +1,53 @@
-"""Retrieval evaluation metrics — pure functions.
+"""Metric helpers for the trustworthy RAG evaluation framework.
 
-These functions don't depend on the pipeline. They take an ordered list of
-retrieved (doc, section, paragraph) tuples plus a list of expected citations
-and return a score. Unit-testable without any model loaded.
+Two complementary metric families live here; both are pure functions and
+unit-testable without loading a model.
 
-Definitions:
+1. RETRIEVAL METRICS (operate on a per-question list of retrieved chunks
+   plus the benchmark's expected citations):
+     - chunk_matches_expected, first_hit_rank
+     - hit_at_k, recall_at_k, reciprocal_rank (MRR per-question)
+     - Strict and loose matching modes
 
-  Hit@k         binary  — at least one expected citation lands in top-k?
-  Recall@k      float   — fraction of expected citations that land in top-k
-  ReciprocalRank float  — 1 / (rank + 1) of the first relevant retrieved item;
-                          0 if no expected citation is retrieved at all
-  MRR (Mean RR)         — average of ReciprocalRank across queries
+2. PIPELINE OUTCOME METRICS (operate on a list of QuestionResult records
+   that the benchmark runner builds from RAGOutput + benchmark.yaml):
+     - state_accuracy, state_confusion_matrix, refusal_precision_recall
+     - retrieval_recall_at_k (doc-level, complements per-chunk recall above)
+     - citation_correctness, faithfulness_rate
+     - latency_stats, per_category_accuracy
+     - Aggregate / aggregate()
 
-Both strict and loose matching are supported:
-
-  loose (default): doc substring match + paragraph exact match if specified.
-                   Mirrors the benchmark style — benchmark uses "CPS 234" but
-                   the parsed chunks carry the full title "CPS 234 Information
-                   Security", so substring match is the practical choice.
-  strict:          full equality on (doc, section, paragraph) — useful for
-                   diagnosing whether the retriever is finding the correct
-                   paragraph, not just the correct document.
-
-Run `python eval/metrics.py` to execute the self-tests below.
+Run `python eval/metrics.py` to execute the self-tests for both families.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from statistics import mean
+from typing import Literal
+
+
+# =============================================================================
+# Section 1 — Retrieval metrics (pure per-question functions)
+# =============================================================================
+#
+# These functions don't depend on the pipeline. Each takes an ordered list of
+# retrieved (doc, section, paragraph) tuples plus a list of expected citations
+# and returns a score for a single question.
+#
+# Definitions:
+#   Hit@k          binary — at least one expected citation lands in top-k?
+#   Recall@k       fraction of expected citations that land in top-k
+#   ReciprocalRank 1 / (rank + 1) of first relevant retrieved item; 0 if none
+#   MRR            average of ReciprocalRank across queries (caller aggregates)
+#
+# Two matching modes:
+#   loose (default): doc substring match + paragraph exact (if specified).
+#                    Benchmark uses short ids ("CPS 234") but parsed chunks
+#                    carry full titles ("CPS 234 Information Security") —
+#                    substring matching is the practical default.
+#   strict:          full equality on (doc, section, paragraph) — useful for
+#                    diagnosing paragraph-level retrieval precision.
 
 
 @dataclass(frozen=True)
@@ -132,12 +152,223 @@ def reciprocal_rank(
     return 1.0 / (rank + 1)
 
 
-# ---------------------------------------------------------------------------
+# =============================================================================
+# Section 2 — Pipeline outcome metrics (over QuestionResult records)
+# =============================================================================
+#
+# These metrics operate on the runner's per-question summary. They cover end-
+# to-end pipeline behaviour: state classification accuracy, refusal P/R/F1,
+# citation correctness, faithfulness rate, latency, per-category breakdown.
+#
+# They complement the retrieval metrics above: retrieval metrics tell you "did
+# we find the right chunk?"; pipeline metrics tell you "given what we found,
+# did the system make the right end-to-end decision?".
+
+State = Literal["confident", "hedged", "refused"]
+STATES: tuple[State, State, State] = ("confident", "hedged", "refused")
+
+ANSWERABLE_CATEGORIES = {
+    "answerable_easy",
+    "answerable_hard",
+    "answerable_multi_chunk",
+    "answerable_crossdoc",
+    "answerable_inferential",
+    "ambiguous",
+}
+UNANSWERABLE_CATEGORIES = {
+    "unanswerable_in_domain",
+    "unanswerable_out_of_scope",
+    "adversarial",
+    "adversarial_misleading",
+}
+
+
+@dataclass
+class QuestionResult:
+    """Per-question outcome consumed by every metric helper below."""
+
+    qid: str
+    category: str
+    expected_state: str
+    expected_doc_ids: list[str]  # e.g., ["CPS 234"] — loose, doc-level
+    predicted_state: str
+    cited_doc_ids: list[str]
+    retrieved_doc_ids: list[str]  # ordered top-K
+    confidence_value: float
+    unfaithful_count: int
+    has_faithfulness_report: bool  # False if check was skipped or state was refused
+    llm_called: bool
+    elapsed_ms: int
+    error: str | None = None  # set if the pipeline raised; metrics ignore these rows
+
+
+# -------- State classification --------
+
+def state_accuracy(results: list[QuestionResult]) -> float:
+    """Fraction of questions where predicted state == expected state."""
+    valid = [r for r in results if r.error is None]
+    if not valid:
+        return 0.0
+    return sum(1 for r in valid if r.predicted_state == r.expected_state) / len(valid)
+
+
+def state_confusion_matrix(results: list[QuestionResult]) -> dict[str, dict[str, int]]:
+    """3x3 matrix expected[row] -> predicted[col] counts."""
+    cm: dict[str, dict[str, int]] = {e: {p: 0 for p in STATES} for e in STATES}
+    for r in results:
+        if r.error is not None:
+            continue
+        if r.expected_state in cm and r.predicted_state in cm[r.expected_state]:
+            cm[r.expected_state][r.predicted_state] += 1
+    return cm
+
+
+def refusal_precision_recall(results: list[QuestionResult]) -> dict[str, float]:
+    """P/R/F1 treating 'refused' as the positive class."""
+    valid = [r for r in results if r.error is None]
+    tp = sum(1 for r in valid if r.predicted_state == "refused" and r.expected_state == "refused")
+    fp = sum(1 for r in valid if r.predicted_state == "refused" and r.expected_state != "refused")
+    fn = sum(1 for r in valid if r.predicted_state != "refused" and r.expected_state == "refused")
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+    return {"precision": precision, "recall": recall, "f1": f1, "tp": tp, "fp": fp, "fn": fn}
+
+
+# -------- Retrieval quality (doc-level, complements per-chunk metrics above) --------
+
+def _doc_match(expected: str, retrieved: list[str]) -> bool:
+    """Loose, case-insensitive substring match — benchmark uses short doc ids
+    ('CPS 234'), parsed chunks carry full titles ('CPS 234 Information Security')."""
+    needle = expected.lower()
+    return any(needle in r.lower() for r in retrieved)
+
+
+def retrieval_recall_at_k(results: list[QuestionResult], k: int) -> float:
+    """For answerable questions, fraction where any expected doc appears in top-K retrieved.
+
+    Doc-level. For chunk-level Hit@K / Recall@K / MRR see Section 1.
+    """
+    answerable = [
+        r for r in results
+        if r.error is None and r.category in ANSWERABLE_CATEGORIES and r.expected_doc_ids
+    ]
+    if not answerable:
+        return 0.0
+    hits = sum(
+        1 for r in answerable
+        if any(_doc_match(d, r.retrieved_doc_ids[:k]) for d in r.expected_doc_ids)
+    )
+    return hits / len(answerable)
+
+
+def retrieval_recall_curve(
+    results: list[QuestionResult], ks: tuple[int, ...] = (1, 3, 5, 10)
+) -> dict[int, float]:
+    return {k: retrieval_recall_at_k(results, k) for k in ks}
+
+
+# -------- Citation quality --------
+
+def citation_correctness(results: list[QuestionResult]) -> float:
+    """For confident answers, fraction where at least one cited doc matches an expected doc."""
+    confident = [
+        r for r in results
+        if r.error is None and r.predicted_state == "confident" and r.expected_doc_ids
+    ]
+    if not confident:
+        return 0.0
+    hits = sum(
+        1 for r in confident
+        if any(_doc_match(d, r.cited_doc_ids) for d in r.expected_doc_ids)
+    )
+    return hits / len(confident)
+
+
+# -------- Faithfulness --------
+
+def faithfulness_rate(results: list[QuestionResult]) -> float:
+    """Fraction of answered questions (with faithfulness report) that had zero unfaithful claims."""
+    answered = [
+        r for r in results
+        if r.error is None and r.has_faithfulness_report
+    ]
+    if not answered:
+        return 0.0
+    return sum(1 for r in answered if r.unfaithful_count == 0) / len(answered)
+
+
+# -------- Latency --------
+
+def _percentile(values: list[float], pct: float) -> float:
+    if not values:
+        return 0.0
+    s = sorted(values)
+    # Nearest-rank percentile; fine for small N where exact interpolation is overkill.
+    idx = max(0, min(len(s) - 1, int(round(pct / 100.0 * (len(s) - 1)))))
+    return s[idx]
+
+
+def latency_stats(results: list[QuestionResult]) -> dict[str, float]:
+    valid_ms = [r.elapsed_ms for r in results if r.error is None]
+    if not valid_ms:
+        return {"mean_ms": 0.0, "p50_ms": 0.0, "p95_ms": 0.0, "llm_call_rate": 0.0}
+    llm_calls = sum(1 for r in results if r.error is None and r.llm_called)
+    return {
+        "mean_ms": mean(valid_ms),
+        "p50_ms": _percentile([float(v) for v in valid_ms], 50),
+        "p95_ms": _percentile([float(v) for v in valid_ms], 95),
+        "llm_call_rate": llm_calls / len(valid_ms),
+    }
+
+
+# -------- Aggregate --------
+
+@dataclass
+class Aggregate:
+    """All headline metrics in one bag — what the runner writes to metrics.json."""
+
+    n_total: int
+    n_errors: int
+    state_accuracy: float
+    state_confusion_matrix: dict[str, dict[str, int]]
+    refusal: dict[str, float]
+    retrieval_recall: dict[int, float]
+    citation_correctness: float
+    faithfulness_rate: float
+    latency: dict[str, float]
+    per_category_accuracy: dict[str, float] = field(default_factory=dict)
+
+
+def per_category_accuracy(results: list[QuestionResult]) -> dict[str, float]:
+    by_cat: dict[str, list[QuestionResult]] = {}
+    for r in results:
+        if r.error is None:
+            by_cat.setdefault(r.category, []).append(r)
+    return {cat: state_accuracy(rs) for cat, rs in sorted(by_cat.items())}
+
+
+def aggregate(results: list[QuestionResult]) -> Aggregate:
+    return Aggregate(
+        n_total=len(results),
+        n_errors=sum(1 for r in results if r.error is not None),
+        state_accuracy=state_accuracy(results),
+        state_confusion_matrix=state_confusion_matrix(results),
+        refusal=refusal_precision_recall(results),
+        retrieval_recall=retrieval_recall_curve(results),
+        citation_correctness=citation_correctness(results),
+        faithfulness_rate=faithfulness_rate(results),
+        latency=latency_stats(results),
+        per_category_accuracy=per_category_accuracy(results),
+    )
+
+
+# =============================================================================
 # Self-tests. Run: `python eval/metrics.py`
-# ---------------------------------------------------------------------------
+# =============================================================================
 
 
-def _run_self_tests() -> None:
+def _run_retrieval_self_tests() -> None:
     # A toy retrieval result for the CPS 234 §35 question.
     retrieved = [
         ("CPS 230 Operational Risk Management", "Incident management", "26"),  # rank 0 — wrong doc
@@ -180,11 +411,9 @@ def _run_self_tests() -> None:
     assert recall_at_k(retrieved, expected_two, k=4) == 1.0, "both found in top-4"
     assert recall_at_k(retrieved, expected_two, k=2) == 0.5, "only CPS 234 in top-2"
 
-    # ---- MRR ----
-    # Rank-1 → RR = 1/2 = 0.5
-    assert abs(reciprocal_rank(retrieved, expected_cps234) - 0.5) < 1e-9
+    # ---- MRR (per-question) ----
+    assert abs(reciprocal_rank(retrieved, expected_cps234) - 0.5) < 1e-9, "rank-1 → RR=0.5"
 
-    # No match → RR = 0
     no_match = [ExpectedCitation(doc="Banking Act", paragraph="999")]
     assert reciprocal_rank(retrieved, no_match) == 0.0
 
@@ -214,8 +443,47 @@ def _run_self_tests() -> None:
     assert recall_at_k(retrieved, [], k=10) == 0.0
     assert first_hit_rank([], expected_cps234) is None
 
-    print("OK — all self-tests passed.")
+    print("OK — retrieval-metrics self-tests passed.")
+
+
+def _run_pipeline_outcome_self_tests() -> None:
+    fake = [
+        QuestionResult(
+            qid="q1", category="answerable_easy", expected_state="confident",
+            expected_doc_ids=["CPS 234"], predicted_state="confident",
+            cited_doc_ids=["CPS 234"], retrieved_doc_ids=["CPS 234", "Privacy Act"],
+            confidence_value=0.85, unfaithful_count=0, has_faithfulness_report=True,
+            llm_called=True, elapsed_ms=1200,
+        ),
+        QuestionResult(
+            qid="q2", category="unanswerable_out_of_scope", expected_state="refused",
+            expected_doc_ids=[], predicted_state="refused",
+            cited_doc_ids=[], retrieved_doc_ids=["CPS 234"],
+            confidence_value=0.20, unfaithful_count=0, has_faithfulness_report=False,
+            llm_called=False, elapsed_ms=200,
+        ),
+        QuestionResult(
+            qid="q3", category="answerable_easy", expected_state="confident",
+            expected_doc_ids=["Privacy Act"], predicted_state="hedged",
+            cited_doc_ids=["Privacy Act"], retrieved_doc_ids=["Privacy Act"],
+            confidence_value=0.55, unfaithful_count=1, has_faithfulness_report=True,
+            llm_called=True, elapsed_ms=1500,
+        ),
+    ]
+    agg = aggregate(fake)
+
+    assert abs(agg.state_accuracy - 2 / 3) < 1e-9, f"state_accuracy={agg.state_accuracy}"
+    assert agg.refusal["precision"] == 1.0
+    assert agg.refusal["recall"] == 1.0
+    assert agg.retrieval_recall[5] == 1.0
+    assert agg.citation_correctness == 1.0, "q1 (confident) cited matching doc"
+    assert agg.faithfulness_rate == 0.5, "1 of 2 answered passed faithfulness"
+    assert agg.latency["p50_ms"] == 1200.0
+    assert agg.per_category_accuracy == {"answerable_easy": 0.5, "unanswerable_out_of_scope": 1.0}
+
+    print("OK — pipeline-outcome self-tests passed.")
 
 
 if __name__ == "__main__":
-    _run_self_tests()
+    _run_retrieval_self_tests()
+    _run_pipeline_outcome_self_tests()

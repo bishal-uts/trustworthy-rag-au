@@ -67,8 +67,12 @@ def score_and_route(
     hybrid_hits: list[HybridHit],
     top_chunk_text: str | None,
     nli_id: str,
+    override_floor: float | None = None,
 ) -> RoutingDecision:
     cfg = settings.confidence
+    # override_floor lets the ablation runner disable the hard-floor gate
+    # (pass 0.0) without mutating module-level settings.
+    floor = override_floor if override_floor is not None else cfg.top1_dense_floor
 
     # Signal 1: top-1 dense similarity
     top1_dense = dense_hits[0].score if dense_hits else 0.0
@@ -109,13 +113,13 @@ def score_and_route(
     # reliable signal. If the top-1 dense score is below the floor, the
     # corpus genuinely doesn't contain a relevant chunk — refuse.
     refused_reason: str | None = None
-    if top1_dense_clamped < cfg.top1_dense_floor:
+    if top1_dense_clamped < floor:
         return RoutingDecision(
             state="refused",
             report=report,
             refused_reason=(
                 f"Top-1 dense score {top1_dense_clamped:.2f} below floor "
-                f"{cfg.top1_dense_floor} — corpus likely does not contain a relevant chunk."
+                f"{floor} — corpus likely does not contain a relevant chunk."
             ),
         )
 
