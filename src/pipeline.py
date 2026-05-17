@@ -27,27 +27,28 @@ from typing import Literal
 from rich.console import Console
 from rich.pretty import pprint
 
-# I-don't-know detector: the 4th safety net described in v0.2 methodology.
-# If the LLM produces a refusal-style answer or returns no citations, the
-# pipeline downgrades to "refused" regardless of confidence routing — closes
-# the gap where retrieval misses + honest LLM refusal can produce a
-# false-confident state (see cross_001 analysis in calibration notes).
-_REFUSAL_PATTERNS = re.compile(
-    r"(INSUFFICIENT_CONTEXT|"
-    r"provided context does not contain|insufficient (?:information|context|details)|"
-    r"cannot (?:determine|answer|find)|unable to (?:answer|determine|find)|"
-    r"i (?:don[''']t|do not) (?:know|have)|no (?:information|mention) (?:of|about)|"
-    r"not (?:mentioned|specified|provided|available) in the (?:context|provided))",
-    re.IGNORECASE,
-)
+# I-don't-know detector: the 4th safety net (v0.2; tightened in v0.3).
+#
+# Triggers ONLY on:
+#   1. Empty citations list — the LLM had no source to back its answer.
+#   2. Explicit INSUFFICIENT_CONTEXT marker — the prompt instructs the LLM to
+#      emit this token when it cannot answer from the chunks.
+#
+# v0.2 used a broader regex (cannot determine / no information / unable to /
+# i don't know / etc.). On n=49 that worked well, but on n=100 it over-fired
+# on ~11 questions the LLM did handle correctly but used similar phrasing in
+# its prose. The v0.3 detector trusts the explicit marker only — relies on
+# the prompt's INSUFFICIENT_CONTEXT contract for refusal signalling.
+_REFUSAL_PATTERNS = re.compile(r"INSUFFICIENT_CONTEXT")
 
 
 def _looks_like_idk(text: str | None, citations: list) -> bool:
     """Return True if the LLM's answer is effectively 'I don't know'.
 
     Triggers:
-     1. Empty citations list — system has no source to back the answer.
-     2. Refusal phrase in the first 500 chars of the answer text.
+     1. Empty or whitespace-only answer text.
+     2. Empty citations list (no source for the answer).
+     3. The explicit INSUFFICIENT_CONTEXT marker anywhere in the first 500 chars.
     """
     if not text or not text.strip():
         return True

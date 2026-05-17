@@ -25,15 +25,27 @@ chunking:
 # see eval/results/calibration_baseline/summary.md. Calibration found that
 # rank_overlap carries no usable signal on this corpus (weight 0.0).
 confidence:
-  threshold_confident: 0.70   # calibrated (was 0.65 default, 0.55 tuned)
-  threshold_hedged: 0.65      # calibrated (was 0.40) — narrower hedged band
-  # Per-signal heuristics combined into the final score
-  weight_top1_dense: 0.25     # calibrated (was 0.4)
-  weight_rank_overlap: 0.0    # calibrated — signal had no learnable effect on n=49
-  weight_nli_entail: 0.25     # calibrated (was 0.4)
-  # Sub-thresholds — kept as separate dials for tuning later
-  top1_dense_floor: 0.55      # tuned (was 0.50) — adjacent-topic retrieval was crossing the old floor
+  # Heuristic-mode params (used when use_lr_calibration: false)
+  threshold_confident: 0.70   # heuristic mode; unused when LR active
+  threshold_hedged: 0.65      # heuristic mode; unused when LR active
+  weight_top1_dense: 0.25     # heuristic mode; unused when LR active
+  weight_rank_overlap: 0.0    # heuristic mode; unused when LR active
+  weight_nli_entail: 0.25     # heuristic mode; unused when LR active
+  # Safety floor (applies in both modes)
+  top1_dense_floor: 0.55      # adjacent-topic retrieval was crossing the older 0.50 floor
   nli_entail_floor: 0.50
+  # v0.3: Multinomial LR calibration — ACTIVE
+  # Learned on n=100 with 70/30 stratified holdout split.
+  # Holdout test accuracy: 70.0% (vs 63.3% for grid-search heuristic on same split).
+  # See eval/results/calibration_calibrated_v2_reranker_100/logistic_regression.json
+  use_lr_calibration: true
+  lr_classes: ["confident", "hedged", "refused"]
+  lr_intercepts: [-0.3619201690689378, -1.1446313206460932, 1.5065514897150285]
+  lr_coefs:
+    - [0.4929263644663435, 1.5920257905659911, 0.7913372802792071]      # confident
+    - [-0.13049863533190134, -0.6985958743171999, 0.6142374723920483]   # hedged
+    - [-0.36242772913444204, -0.8934299162487918, -1.4055747526712556]  # refused
+  # Feature order: [top1_dense, rank_overlap, nli_entail]
 
 # Generation
 generation:
