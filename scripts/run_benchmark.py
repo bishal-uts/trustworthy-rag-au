@@ -229,6 +229,8 @@ def run_benchmark(
     enable_faithfulness: bool,
     enable_floor_gate: bool,
     enable_routing: bool = True,
+    use_reranker: bool = False,
+    reranker_id: str = "bge-reranker-base",
     limit: int | None = None,
 ) -> tuple[list[QuestionResult], list[RAGOutput | None]]:
     results: list[QuestionResult] = []
@@ -249,6 +251,8 @@ def run_benchmark(
                 enable_faithfulness=enable_faithfulness,
                 enable_floor_gate=enable_floor_gate,
                 enable_routing=enable_routing,
+                use_reranker=use_reranker,
+                reranker_id=reranker_id,
             )
             elapsed = int((time.time() - t0) * 1000)
             r = grade(q, out, elapsed_ms=elapsed)
@@ -286,7 +290,19 @@ def main() -> int:
     parser.add_argument("--no-faithfulness", action="store_true")
     parser.add_argument("--no-floor-gate", action="store_true")
     parser.add_argument(
+        "--use-reranker", action="store_true",
+        help="Enable cross-encoder reranker between hybrid retrieval and generation",
+    )
+    parser.add_argument(
+        "--reranker-id", default="bge-reranker-base",
+        help="Cross-encoder model id (default: bge-reranker-base)",
+    )
+    parser.add_argument(
         "--no-plots", action="store_true", help="Skip writing the PNG plot panel"
+    )
+    parser.add_argument(
+        "--seed", type=int, default=None,
+        help="Optional run-tag for reproducibility; stored in config.json (does not affect retrieval determinism)",
     )
 
     args = parser.parse_args()
@@ -304,6 +320,9 @@ def main() -> int:
         "retrieval_mode": args.retrieval_mode,
         "enable_faithfulness": not args.no_faithfulness,
         "enable_floor_gate": not args.no_floor_gate,
+        "use_reranker": args.use_reranker,
+        "reranker_id": args.reranker_id if args.use_reranker else None,
+        "seed": args.seed,
         "limit": args.limit,
     }
 
@@ -316,6 +335,8 @@ def main() -> int:
         retrieval_mode=args.retrieval_mode,
         enable_faithfulness=not args.no_faithfulness,
         enable_floor_gate=not args.no_floor_gate,
+        use_reranker=args.use_reranker,
+        reranker_id=args.reranker_id,
         limit=args.limit,
     )
     agg = aggregate(results)

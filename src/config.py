@@ -42,6 +42,15 @@ class ConfidenceSettings(BaseModel):
     weight_nli_entail: float = 0.4
     top1_dense_floor: float = 0.50
     nli_entail_floor: float = 0.50
+    # Optional multinomial logistic regression calibration (plan v1 Phase 3).
+    # If `use_lr_calibration` is True AND lr_coefs/lr_intercepts are populated,
+    # score_and_route replaces the weighted-sum + threshold decision with a
+    # softmax over class logits. Features assumed order: [top1_dense,
+    # rank_overlap, nli_entail]. Classes order is given by lr_classes.
+    use_lr_calibration: bool = False
+    lr_classes: list[str] = Field(default_factory=lambda: ["confident", "hedged", "refused"])
+    lr_intercepts: list[float] = Field(default_factory=list)
+    lr_coefs: list[list[float]] = Field(default_factory=list)
 
 
 class GenerationSettings(BaseModel):

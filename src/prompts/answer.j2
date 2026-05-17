@@ -29,6 +29,8 @@ Rules:
 - The "span" must be a verbatim quote from the chunk (no paraphrase).
 - Use only information from the numbered chunks. Do not invent facts.
 - Keep "answer" under 150 words.
+- **If the provided chunks do not contain a direct answer to the question, do NOT attempt to construct one from adjacent context.** Set "answer" to exactly: `INSUFFICIENT_CONTEXT` and leave "citations" as an empty array `[]`. The downstream pipeline will route this appropriately.
+- Stick close to the chunk wording. Prefer light paraphrase or direct extraction over heavy rewriting — this makes the answer easier to verify against the source.
 {% if hedged -%}
 - This is a HEDGED answer. Begin the answer with: "This may be incomplete: " and explicitly note any uncertainty.
 {%- endif %}

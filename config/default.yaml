@@ -20,17 +20,19 @@ chunking:
   min_tokens: 50            # paragraphs shorter than this are merged forward
   overlap_tokens: 50        # used when a paragraph is split at sentence boundaries
 
-# Confidence routing thresholds (heuristic combiner; v0.1)
-# Calibrated logistic regression replaces these in plan v1 Phase 3.
+# Confidence routing thresholds (calibrated v0.2)
+# Values learned via 5-fold CV grid search on the baseline run's 49 questions —
+# see eval/results/calibration_baseline/summary.md. Calibration found that
+# rank_overlap carries no usable signal on this corpus (weight 0.0).
 confidence:
-  threshold_confident: 0.65   # was 0.75 — too tight for the heuristic; tune in Phase 3
-  threshold_hedged: 0.40
+  threshold_confident: 0.70   # calibrated (was 0.65 default, 0.55 tuned)
+  threshold_hedged: 0.65      # calibrated (was 0.40) — narrower hedged band
   # Per-signal heuristics combined into the final score
-  weight_top1_dense: 0.4
-  weight_rank_overlap: 0.2
-  weight_nli_entail: 0.4
+  weight_top1_dense: 0.25     # calibrated (was 0.4)
+  weight_rank_overlap: 0.0    # calibrated — signal had no learnable effect on n=49
+  weight_nli_entail: 0.25     # calibrated (was 0.4)
   # Sub-thresholds — kept as separate dials for tuning later
-  top1_dense_floor: 0.50
+  top1_dense_floor: 0.55      # tuned (was 0.50) — adjacent-topic retrieval was crossing the old floor
   nli_entail_floor: 0.50
 
 # Generation
@@ -43,7 +45,7 @@ generation:
 
 # Faithfulness check (post-generation NLI)
 faithfulness:
-  per_claim_entail_floor: 0.30   # was 0.50 — too tight; legal claims often paraphrase
+  per_claim_entail_floor: 0.20   # tuned: was 0.30 — NLI rejecting faithful paraphrases in baseline (faithfulness_rate 55%)
   reroute_to_hedged_on_failure: true
 
 # Memory management

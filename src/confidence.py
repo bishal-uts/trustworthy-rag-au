@@ -1,26 +1,27 @@
-"""Heuristic confidence scoring + routing decision.
+"""Confidence scoring + routing decision.
 
-This is the v0.1 version — a transparent linear combiner over three signals.
-Plan v1 Phase 3 replaces this with a logistic regression trained on 50
-manually labelled tuning questions. The interface here stays the same so
-swapping is one-file work.
+Two modes:
 
-Three signals:
+  Heuristic mode (default, v0.1) — transparent linear combiner over three
+  signals plus two thresholds. All five numbers live in settings.confidence.
+
+  Calibrated LR mode (v0.2, plan v1 Phase 3) — multinomial logistic regression
+  whose coefficients are learned by `python -m eval.calibrate` and written
+  back to settings.confidence as lr_intercepts / lr_coefs. Activated by
+  `settings.confidence.use_lr_calibration: true`.
+
+Three input signals (both modes):
  1. retrieval_top1_dense  : the top-1 dense similarity score (0..1)
  2. rank_overlap          : Jaccard overlap of top-3 ids between BM25 and dense (0..1)
  3. nli_entail            : NLI entailment score for (top chunk -> "the chunk answers the question")
 
-Combined as a weighted sum with weights from settings.confidence.
-Output value is clamped to [0, 1].
-
-Routing thresholds are also from settings.confidence:
- - value >= threshold_confident   -> "confident"
- - value >= threshold_hedged      -> "hedged"
- - else                           -> "refused"
+The top1_dense_floor refusal gate is applied in BOTH modes (it's a safety
+check, not part of the routing decision).
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from src.config import settings
@@ -88,7 +89,7 @@ def score_and_route(
     else:
         nli_entail, nli_label = 0.0, "unknown"
 
-    # Combine
+    # ----- Combine signals into a single value (heuristic mode) -----
     weighted = (
         cfg.weight_top1_dense * top1_dense_clamped
         + cfg.weight_rank_overlap * rank_overlap
@@ -107,12 +108,12 @@ def score_and_route(
     )
     report = ConfidenceReport(value=value, signals=signals)
 
+    # ----- Refusal floor (applies in BOTH heuristic and LR modes) -----
     # Hard floor: weak retrieval alone is sufficient to refuse. NLI can be
     # noisy on out-of-domain queries (sometimes >0.5 entailment for nonsense
     # like "recipe for pavlova" against legal text); retrieval is the more
     # reliable signal. If the top-1 dense score is below the floor, the
     # corpus genuinely doesn't contain a relevant chunk — refuse.
-    refused_reason: str | None = None
     if top1_dense_clamped < floor:
         return RoutingDecision(
             state="refused",
@@ -123,6 +124,26 @@ def score_and_route(
             ),
         )
 
+    # ----- Routing decision: LR mode if configured, else heuristic mode -----
+    if cfg.use_lr_calibration and cfg.lr_coefs and cfg.lr_intercepts:
+        state, lr_value = _lr_route(
+            features=[top1_dense_clamped, rank_overlap, nli_entail],
+            classes=cfg.lr_classes,
+            intercepts=cfg.lr_intercepts,
+            coefs=cfg.lr_coefs,
+        )
+        # Replace the heuristic `value` in the report with the LR's max-class
+        # probability — gives the UI/output a meaningful "confidence" number.
+        report = ConfidenceReport(value=lr_value, signals=signals)
+        if state == "refused":
+            return RoutingDecision(
+                state="refused",
+                report=report,
+                refused_reason=f"LR-calibrated routing predicted refused (P={lr_value:.2f})",
+            )
+        return RoutingDecision(state=state, report=report)
+
+    # Heuristic-mode threshold decision
     if value >= cfg.threshold_confident:
         return RoutingDecision(state="confident", report=report)
     if value >= cfg.threshold_hedged:
@@ -132,3 +153,22 @@ def score_and_route(
         report=report,
         refused_reason=f"Confidence {value:.2f} < {cfg.threshold_hedged}",
     )
+
+
+def _lr_route(
+    features: list[float],
+    classes: list[str],
+    intercepts: list[float],
+    coefs: list[list[float]],
+) -> tuple[str, float]:
+    """Multinomial logistic regression: returns (predicted_class, max_prob)."""
+    logits = [
+        intercepts[i] + sum(c * f for c, f in zip(coefs[i], features))
+        for i in range(len(classes))
+    ]
+    max_logit = max(logits)
+    exp_logits = [math.exp(l - max_logit) for l in logits]
+    z = sum(exp_logits)
+    probs = [e / z for e in exp_logits]
+    idx = max(range(len(probs)), key=lambda i: probs[i])
+    return classes[idx], probs[idx]

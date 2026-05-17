@@ -52,6 +52,7 @@ class Chunk(BaseModel):
     bm25_score: float = 0.0
     dense_score: float = 0.0
     rrf_score: float = 0.0
+    rerank_score: float | None = None  # populated when cross-encoder reranker runs
     rank: int = 0
 
 

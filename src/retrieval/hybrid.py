@@ -25,6 +25,7 @@ class HybridHit:
     dense_rank: int | None
     rrf_score: float
     rank: int
+    rerank_score: float | None = None  # populated when cross-encoder reranker runs
 
 
 def _rrf_contribution(rank: int | None, k: int) -> float:
