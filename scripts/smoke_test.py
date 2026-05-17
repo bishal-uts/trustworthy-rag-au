@@ -1,6 +1,7 @@
 """End-to-end smoke test.
 
-Runs each question in eval/benchmark.yaml through the pipeline and asserts:
+Runs the five original golden questions (id prefix `smoke_*`) from
+eval/benchmark.yaml through the pipeline and asserts:
  - The state matches expected_state.
  - For confident answers: at least one expected citation doc appears in the
    actual citations OR top-3 retrieved chunks (loose match — paragraph
@@ -8,13 +9,19 @@ Runs each question in eval/benchmark.yaml through the pipeline and asserts:
    we complete the parsing audit in plan v1 Phase 1).
  - For refused: no LLM call was made.
 
+This is a fast (~30-60s) regression check that the pipeline still works.
+For the full 49-question benchmark with metrics + plots, use
+`scripts/run_benchmark.py`; for the 5-ablation comparison use
+`scripts/run_ablations.py`.
+
 Exit code:
-  0 if all questions pass
-  1 if any question fails
+  0 if all selected questions pass
+  1 if any selected question fails
 
 Usage:
     python scripts/smoke_test.py
     python scripts/smoke_test.py --json   # also write per-question JSON to stdout
+    python scripts/smoke_test.py --all    # run the entire benchmark, not just smoke_*
 """
 
 from __future__ import annotations
@@ -139,10 +146,27 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="End-to-end smoke test.")
     parser.add_argument("--json", action="store_true", help="Print per-question JSON output too")
     parser.add_argument("--fail-fast", action="store_true", help="Stop at first failure")
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Run every question in benchmark.yaml (not just smoke_*). Slow.",
+    )
     args = parser.parse_args()
 
     with BENCHMARK_FILE.open("r", encoding="utf-8") as f:
         questions = yaml.safe_load(f)["questions"]
+
+    # Default behaviour: only the original 5 golden questions (id smoke_*).
+    # Use --all to run the entire benchmark (use run_benchmark.py for metrics + plots).
+    if not args.all:
+        questions = [q for q in questions if str(q.get("id", "")).startswith("smoke_")]
+        if not questions:
+            console.print(
+                "[red]No questions with id starting with 'smoke_' found.[/red] "
+                "Use --all to run the full benchmark instead."
+            )
+            return 1
+    console.print(f"[bold]Running {len(questions)} question(s)[/bold]")
 
     results: list[Result] = []
     for q in questions:

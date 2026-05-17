@@ -39,6 +39,7 @@ from eval.metrics import (  # noqa: E402
     QuestionResult,
     aggregate,
 )
+from eval.plot_benchmark import plot_run  # noqa: E402
 from src.pipeline import run as run_pipeline  # noqa: E402
 from src.schemas import RAGOutput  # noqa: E402
 
@@ -284,6 +285,9 @@ def main() -> int:
     )
     parser.add_argument("--no-faithfulness", action="store_true")
     parser.add_argument("--no-floor-gate", action="store_true")
+    parser.add_argument(
+        "--no-plots", action="store_true", help="Skip writing the PNG plot panel"
+    )
 
     args = parser.parse_args()
 
@@ -323,6 +327,11 @@ def main() -> int:
     write_metrics_csv(out_dir / "metrics.csv", results)
     write_summary_md(out_dir / "summary.md", args.run_id, config, agg, len(results))
     write_config_json(out_dir / "config.json", config)
+
+    if not args.no_plots:
+        # Pass results as dicts (already in per_question format) and agg as dict
+        results_dicts = [asdict(r) for r in results]
+        plot_run(results_dicts, asdict(agg), args.run_id, out_dir / "plots")
 
     # Console summary
     table = Table(title=f"Run {args.run_id} · headline metrics")

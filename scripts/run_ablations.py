@@ -36,6 +36,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from rich.console import Console  # noqa: E402
 
 from eval.metrics import Aggregate, aggregate  # noqa: E402
+from eval.plot_benchmark import plot_ablations, plot_run  # noqa: E402
 from scripts.run_benchmark import (  # noqa: E402
     BENCHMARK_FILE,
     RESULTS_ROOT,
@@ -154,6 +155,11 @@ def main() -> int:
         default=None,
         help="Comma-separated run_ids to include (default: all five ablations)",
     )
+    parser.add_argument(
+        "--no-plots",
+        action="store_true",
+        help="Skip writing per-run and cross-ablation PNG plots",
+    )
     args = parser.parse_args()
 
     only = {r.strip() for r in args.only.split(",")} if args.only else None
@@ -207,19 +213,23 @@ def main() -> int:
         write_summary_md(run_dir / "summary.md", cfg["run_id"], run_config, agg, len(results))
         write_config_json(run_dir / "config.json", run_config)
 
+        # Per-run plots (single-config view) live alongside the per-run outputs.
+        if not args.no_plots:
+            results_dicts = [asdict(r) for r in results]
+            plot_run(results_dicts, asdict(agg), cfg["run_id"], run_dir / "plots")
+
         rows.append((cfg, agg))
 
     md = comparison_md(rows)
     comparison_path = out_root / "ablation_comparison.md"
     comparison_path.write_text(md, encoding="utf-8")
+    rows_json = [{"config": cfg, "metrics": asdict(agg)} for cfg, agg in rows]
     json_path = out_root / "ablation_comparison.json"
-    json_path.write_text(
-        json.dumps(
-            [{"config": cfg, "metrics": asdict(agg)} for cfg, agg in rows],
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+    json_path.write_text(json.dumps(rows_json, indent=2), encoding="utf-8")
+
+    # Cross-ablation comparison plots live next to the markdown summary.
+    if not args.no_plots:
+        plot_ablations(rows_json, out_root / "ablation_plots")
 
     console.print(f"\n[bold green]Comparison written to {comparison_path}[/bold green]")
     console.print(md)
