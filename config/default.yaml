@@ -34,11 +34,10 @@ confidence:
   # Safety floor (applies in both modes)
   top1_dense_floor: 0.55      # adjacent-topic retrieval was crossing the older 0.50 floor
   nli_entail_floor: 0.50
-  # v0.3: Multinomial LR calibration — ACTIVE
-  # Learned on n=100 with 70/30 stratified holdout split.
-  # Holdout test accuracy: 70.0% (vs 63.3% for grid-search heuristic on same split).
-  # See eval/results/calibration_calibrated_v2_reranker_100/logistic_regression.json
-  use_lr_calibration: true
+  # v0.5: LR calibration DISABLED — using calibrated heuristic instead.
+  # The v0.3/v0.4 LR coefficients are kept below for reference but inactive.
+  # Heuristic-mode thresholds above are used for routing.
+  use_lr_calibration: false
   lr_classes: ["confident", "hedged", "refused"]
   lr_intercepts: [-0.3619201690689378, -1.1446313206460932, 1.5065514897150285]
   lr_coefs:
